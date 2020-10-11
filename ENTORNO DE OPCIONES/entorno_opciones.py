@@ -33,6 +33,13 @@ Para eso:
 
 
 
+CALCULAR SUMA CADA VEZ QUE HAYA UNA NUEVA COMPRA
+
+TENER UN .TXT DE TODAS LAS POSICIONES
+
+
+
+
 
 *LINEA X
 *ARREGLAR GGAL
@@ -94,6 +101,11 @@ root.mainloop()
 
 # Poner mayusculas a las clases
 # Eliminar al vender
+
+
+
+
+
 
 class Ggal:
 
@@ -208,9 +220,23 @@ class Cartera:
         self.acciones = 0
         self.opciones = 0
         self.total_opciones = 0
-        self.opciones_details = list()
         self.total = efectivo
+
+        #with open(path, "r", encoding="UTF-8") as file:
+        #    for i in file.readlines():
+        #        i.replace("\n", "")
+        #        self.opciones_details.append(i.split())
+
+        print("DATOS CARGADOS!")
+
         self.suma = [0 for x in x]
+        self.tenencia = df.loc[df["Cantidad"] != 0]
+
+
+
+
+
+
 
     def __str__(self):
         return "Mi Cartera"
@@ -235,6 +261,7 @@ class Cartera:
                     cant)) / total
 
         recta = [round((x - precio_conseguido)*cant,2) for x in x]
+
         self.suma = [self.suma[x] + recta[x] for x in range(len(self.suma))]
 
 
@@ -252,15 +279,27 @@ class Cartera:
             if self.efectivo >= cant * lote * df.loc[name,"Prima"]:
                 self.efectivo -= cant * lote * df.loc[name,"Prima"]
 
-        if cant > 0:
-            compra = True
-        else:
-            compra = False
+        pass
 
 
-        self.opciones_details.append([int(list[2]),prima,list[1],compra])
-        self.suma = graph(self.suma,self.opciones_details[-1])
 
+    def actualizar_tenencia(self,tenencia):
+        self.tenencia = tenencia
+
+        print("ENTRA")
+
+        #Reuno los datos para pasarselo a la función
+        total = list()
+        for i in range(len(self.tenencia)):
+            data = self.tenencia.index[i].split("_")
+            data = [data[1],data[2]]
+            total.append(data+list(self.tenencia.iloc[i]))
+        print(total)
+        self.suma = graph(total)
+
+
+        # for i in range(len(tenencia)):
+        #    print(list(tenencia.iloc[i]))
 
 
 
@@ -272,7 +311,7 @@ class Cartera:
 
 
 
-def y_graph(base,prima,side,compra,lote=100):
+def y_graph(side,base,prima,cant,lote=100):
     """
     Determina la curva de una opción, sea call/put comprado/lanzado
     """
@@ -284,20 +323,20 @@ def y_graph(base,prima,side,compra,lote=100):
         compra True = comprar call (view alcista)
         compra False = lanzar call (view bajista)
         """
-        if compra:
-            return [-prima * lote if x <= base else round((x - (base+prima)) * lote,2) for x in x ]
-        return [prima * lote if x <= base else round(((base+prima) - x) * lote ,2)  for x in x ]
+        if cant > 0:
+            return [-prima * lote *cant if x <= base else round((x - (base+prima)) * lote * cant,2) for x in x ]
+        return [prima * lote * -cant if x <= base else round(((base+prima) - x) * lote * -cant ,2)  for x in x ]
 
     else:
         """
         compra True = comprar put (view bajista)
         compra False = lanzar put (view alcista)
         """
-        if compra:
-            return [-prima * lote if x >= base else round(((base-prima) - x)*lote,2) for x in x]
-        return [prima * lote if x >= base else round((x - (base - prima)) * lote,2) for x in x]
+        if cant > 0:
+            return [-prima * lote * cant if x >= base else round(((base-prima) - x) * lote * cant,2) for x in x]
+        return [prima * lote * -cant if x >= base else round((x - (base - prima)) * lote * -cant,2) for x in x]
 
-def graph(suma,new):
+def graph(details):
     """
     Calcula los valores de Y para la suma de todos los activos en cartera.
     Valores que muestra el gráfico en pantalla
@@ -305,10 +344,12 @@ def graph(suma,new):
     #print("SUMA: ",suma)
     #print("NEW: ",new)
 
-    propia = y_graph(new[0],new[1],new[2],new[3])
-    for i in range(len(suma)):
-        suma[i] += propia[i]
+    suma = [0 for x in x]
 
+    for i in details:
+        for j in range(len(suma)):
+            suma[j] += y_graph(i[0],float(i[1]),i[2],i[3])[j]
+    print(suma)
     return suma
 
 
@@ -356,6 +397,7 @@ def comprar(activo,cant_comprada=1):
     """
     Comprar un activo, actualizar el DataFrame
     """
+    global opcion
 
     if cant_comprada == 1:
         print("COMPRANDO", opcion.get())
@@ -366,6 +408,7 @@ def comprar(activo,cant_comprada=1):
         mi_cartera.buy_ggal(cant_comprada)
     else:
         mi_cartera.buy_opc(cant_comprada,activo,True,df.loc[activo,"Prima"]) #cantidad,activo,market,prima
+
 
         #Actualizo DataFrame
         df.loc[activo, "Cantidad"] += cant_comprada  # Nueva Cantidad
@@ -378,6 +421,14 @@ def comprar(activo,cant_comprada=1):
 
         df.loc[activo, "Tenencia"] = df.loc[activo, "Prima"] * df.loc[activo, "Cantidad"] * 100 # Tenencia
 
+    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0,["Prima","Cantidad"]])
+
+    print()
+
+
+
+
+    time.sleep(0.5)
     actualizar()
 
 
@@ -396,13 +447,7 @@ def actualizar():
     También actualiza el gráfico
     """
 
-    global figure
-
-
-
-
-
-
+    global figure,parar
 
     plt.close()
 
@@ -412,18 +457,19 @@ def actualizar():
     text4.delete("1.0", "end")
 
 
-    #Paso del tiempo
-    mi_contexto.vto += 1
-    if mi_contexto.vto % 15 == 0:
-        mi_contexto.sortear_contexto()
+    if parar.get() == 0:
+        #Paso del tiempo
+        mi_contexto.vto += 1
+        if mi_contexto.vto % 15 == 0:
+            mi_contexto.sortear_contexto()
 
-    #Actualizo GGAL
-    subyascente.price += random.choice(mi_contexto.possibilities)
-    df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
-    df.loc["GGAL", "Prima"] = subyascente.price
-    df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
-    if mi_cartera.acciones == 0:
-        df.loc["GGAL","PP"] = 0
+        #Actualizo GGAL
+        subyascente.price += random.choice(mi_contexto.possibilities)
+        df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
+        df.loc["GGAL", "Prima"] = subyascente.price
+        df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
+        if mi_cartera.acciones == 0:
+            df.loc["GGAL","PP"] = 0
 
 
     #Actualizo gráfico
@@ -446,13 +492,16 @@ def actualizar():
     ax1.xaxis.set_major_formatter(ticks_x)
     ax1.yaxis.set_major_formatter(ticks_y)
     plt.xlim(subyascente.price-40,subyascente.price+40)
+
     #SUBPLOT = 1 RENGLON, 1 COLUMNA, POSICIÓN 1
     chart = FigureCanvasTkAgg(figure, root)
-    chart.get_tk_widget().place(x="1100")
+    chart.get_tk_widget().place(x=1150)
 
     text1.insert(tk.INSERT, df.iloc[[x for x in range(1, len(df) - 1, 2)]].to_string())  # Calls
     text2.insert(tk.INSERT, df.iloc[[x for x in range(2, len(df), 2)]].to_string())  # Puts
     text4.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())  # GGAL
+
+
 
     renglon = 1
     for i in opciones:
@@ -464,11 +513,14 @@ def actualizar():
         if i.arbitrado:
             df.loc[i.ticker,"Prima"] = round(i.prima,2)
 
-        df.loc[i.ticker,"B&Sch"] = calculo_blackScholes(subyascente.price,i.base,8/360,i.side)
+        df.loc[i.ticker,"B&Sch"] = calculo_blackScholes(subyascente.price,i.base,68/360,i.side)
         df.loc[i.ticker, "Tenencia"] = df.loc[i.ticker, "Prima"] * df.loc[i.ticker, "Cantidad"] * 100
 
         if df.loc[i.ticker, "Cantidad"] != 0:
-            df.loc[i.ticker, "Rendimiento"] = round(((df.loc[i.ticker, "Prima"] - df.loc[i.ticker, "PP"]) / df.loc[i.ticker, "PP"]) * 100, 2)
+            try:
+                df.loc[i.ticker, "Rendimiento"] = round(((df.loc[i.ticker, "Prima"] - df.loc[i.ticker, "PP"]) / df.loc[i.ticker, "PP"]) * 100, 2)
+            except ZeroDivisionError:
+                df.loc[i.ticker, "Rendimiento"] = 0
         else:
             df.loc[i.ticker, "PP"] = 0
             df.loc[i.ticker, "Rendimiento"] = 0
@@ -498,11 +550,26 @@ def actualizar():
     text3["text"] = "EFECTIVO ${} OPCIONES ${}    -     DÍAS DESDE EL INICIO --> {}    - CONTEXTO --> {}".format\
         (mi_cartera.efectivo,mi_cartera.total_opciones,mi_contexto.vto,mi_contexto)
 
+    #print(mi_cartera.opciones_details)
+
+    #print("EN CARTERA: ", mi_cartera.tenencia)
+
+
+
     plt.grid()
 
-
-
-
+def guardar_datos(file):
+    """
+    Guarda la posición en formato .txt
+    """
+    with open(file,"w",encoding="utf-8") as file:
+        for i in list(mi_cartera.tenencia.index):
+            renglon = [i]+list(df.loc[i])
+            print(renglon)
+            for j in renglon:
+                file.write(str(j) + " ")
+            file.write("\n")
+    print("GUARDADO!")
 
 def clicked(value):
     """
@@ -512,8 +579,17 @@ def clicked(value):
     myLabel.place(x="15",y="570")
     print("CLICKED")
 
+def pausa():
+    """
+    Pausa el tiempo e inmoviliza el subyascente. Sólo para prácticar y pensar la estrategia.
+    Maneja el checkbutton.
+    """
+    if parar.get():
+        parar.set(False)
+    else:
+        parar.set(True)
 
-def main():
+def loop():
     """
     Loop principal
     """
@@ -525,100 +601,123 @@ def main():
         root.update()
         i += 1
 
+def variables():
+    global x,opciones,subyascente,mi_cartera,mi_contexto,df,ticks_x,ticks_y
+    # Variables
+    df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
+    df.set_index("Serie", inplace=True)
+    x = [x for x in range(20, 300, 2)]
+    ticks_x = ticker.FuncFormatter(lambda x, pos: "{:.0f}".format(x))
+    ticks_y = ticker.FuncFormatter(lambda y, pos: "{:.2f}K".format(y / 1000))
 
 
+    # Creando Objetos
+    subyascente = Ggal(125)
+    mi_cartera = Cartera(100000)
+    mi_contexto = Contexto()
+    opciones = list()
 
+    df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
 
+    for i in range(98, 189, 3):
+        for j in ["C", "V"]:
+            new = Opcion(i, j)
+            df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
+            opciones.append(new)
 
+    # Cargando Tenencia
 
+    with open(path,"r",encoding="utf-8") as file:
+        for i in file.readlines():
+            i = i.split(" ")
+            i.remove("\n")
 
+        df.loc[i[0]] = [round(float(i[1]),2),round(float(i[2]),2),round(float(i[3]),2),round(float(i[4]),2),int(i[5]),round(float(i[6]),2)]
+    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
 
-#Variables
-hoy = datetime(2020,10,6)
-dict_opc = dict()
-df = pd.DataFrame(columns=["Serie","Prima","B&Sch","Tenencia","PP","Cantidad","Rendimiento"])
-df.set_index("Serie",inplace=True)
-x = [x for x in range(20,300,2)]
-ticks_x = ticker.FuncFormatter(lambda x,pos:"{:.0f}".format(x))
-ticks_y = ticker.FuncFormatter(lambda y,pos:"{:.2f}K".format(y/1000))
+def init_tkinter():
+    """
+    Creo Objetos en tkinter al iniciar el programa
+    """
+    global root, text1, text2, text3, text4, parar, figure, ticks_x, ticks_y, opcion
 
-#Creando Objetos
-subyascente = Ggal(125)
-mi_cartera = Cartera(100000)
-mi_contexto = Contexto()
-opciones = list()
+    # root
+    root = tk.Tk()
+    root.geometry("1750x600")
+    root.title("Entorno de opciones GGAL")
+    root.pack_propagate(False)
+    root.resizable(0, 0)  # No puede agrandarse, ni achicarse la ventana
 
+    # Cuadros calls/puts
+    text1 = tk.Text(root)
+    text1.place(x=30, height=550, width=520)
+    text2 = tk.Text(root)
+    text2.place(x=600, height=550, width=520)
+    text3 = tk.Label(root, text="")
+    text3.place(x="415", y="575")
+    text4 = tk.Text(root)
+    text4.place(x=1150, y=425, height=100, width=200)
 
-df.loc["GGAL"] = [subyascente.price,0,0,0,0,0]
+    # RadioButton
+    opcion = StringVar()
+    opcion.set(df.index[0])
 
-for i in range(98, 189, 3):
-    for j in ["C", "V"]:
-        new = Opcion(i, j)
-        df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
-        opciones.append(new)
-
-
-
-#Tkinter
-root = tk.Tk()
-root.geometry("1600x600")
-root.title("Entorno de opciones GGAL")
-root.pack_propagate(False)
-root.resizable(0,0) #No puede agrandarse, ni achicarse la ventana
-
-
-#Cuadros calls/puts
-text1 = tk.Text(root)
-text1.place(x=30,height=550,width=500)
-text2 = tk.Text(root)
-text2.place(x=580, height=550, width=500)
-text3 = tk.Label(root,text="")
-text3.place(x="415",y="575")
-text4 = tk.Text(root)
-text4.place(x=1100,y=425, height=100, width=200)
-
-
-
-opcion = StringVar()
-opcion.set(df.index[0])
-clicked(opcion.get())
-
-value = 1
-y = 30
-for i in range(-1,len(df)-1):
-    if i == -1:
-        b1 = Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x = "1300", y ="475")
-    else:
-        if i%2 == 0:
-            b1 = Radiobutton(root, var=opcion, value=df.index[i+1],command=lambda: clicked(opcion.get())).place(y=str(y))
+    y = 30
+    for i in range(-1, len(df) - 1):
+        if i == -1:
+            Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x="1370",y="475")
         else:
-            b1 = Radiobutton(root, var=opcion, value=df.index[i+1],command=lambda: clicked(opcion.get())).place(x="550",y=str(y))
-            y += 16
+            if i % 2 == 0:
+                Radiobutton(root, var=opcion, value=df.index[i + 1], command=lambda: clicked(opcion.get())).place(y=str(y))
+            else:
+                Radiobutton(root, var=opcion, value=df.index[i + 1], command=lambda: clicked(opcion.get())).place(x="570", y=str(y))
+                y += 16
 
-button2 = tk.Button(root,text="Comprar",command=lambda: comprar(opcion.get()))
-button2.place(x="125",y="567")
-button3 = tk.Button(root,text="Vender",command=lambda: comprar(opcion.get(),-1))
-button3.place(x="200",y="567")
+    # Botones
+    button2 = tk.Button(root, text="Comprar", command=lambda: comprar(opcion.get()))
+    button2.place(x="125", y="567")
+    button3 = tk.Button(root, text="Vender", command=lambda: comprar(opcion.get(), -1))
+    button3.place(x="200", y="567")
+    button4 = tk.Button(root, text = "Guardar",command = lambda: guardar_datos(path))
+    button4.place(x="1200", y="550")
+
+    # CheckButton - parar tiempo
+    parar = IntVar()
+    check_parar = Checkbutton(root, variable="parar", command=pausa, text="Pausa", onvalue=True, offvalue=False,
+                              width=5)
+    parar.set(False)
+    check_parar.place(x="1500", y="500")
+
+    # Grafico
+    figure = plt.figure(figsize=(5, 4), dpi=100)
+    ax1 = figure.add_subplot(111)
+    ax1.plot(x, mi_cartera.suma)
+    ax1.set_xlabel("Precio GGAL")
+    ax1.set_xlabel("($) Ganancia")
+    ax1.xaxis.set_major_formatter(ticks_x)
+    ax1.yaxis.set_major_formatter(ticks_y)
+
+    chart = FigureCanvasTkAgg(figure, root)
+    chart.get_tk_widget().place(x=1150)
+
+    figure.add_subplot(111).plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
+
+def main():
+    """
+    Defino variables principales
+    """
+
+    variables()
+
+    init_tkinter()
+
+
+    loop()
 
 
 
-#Grafico
-figure = plt.figure(figsize=(5, 4), dpi=100)
-ax1 = figure.add_subplot(111)
-ax1.plot(x,mi_cartera.suma)
-ax1.set_xlabel("Precio GGAL")
-ax1.set_xlabel("($) Ganancia")
-ax1.xaxis.set_major_formatter(ticks_x)
-ax1.yaxis.set_major_formatter(ticks_y)
 
-
-chart = FigureCanvasTkAgg(figure, root)
-chart.get_tk_widget().place(x="1100")
-
-
-
-#y = graph(mi_cartera.opciones_details)
-figure.add_subplot(111).plot((subyascente.price,subyascente.price), (max(mi_cartera.suma),min(mi_cartera.suma)))
+path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/posicion.txt"
 
 
 
@@ -626,15 +725,9 @@ figure.add_subplot(111).plot((subyascente.price,subyascente.price), (max(mi_cart
 
 
 main()
-
-mostrar_cartera()
-
-
 root.mainloop()
 
-mi_cartera.actualizar()
-
-main()
+print("SE SALIOOOOOOOOOOO")
 
 
 
