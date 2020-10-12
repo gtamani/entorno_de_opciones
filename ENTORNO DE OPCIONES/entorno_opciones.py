@@ -116,9 +116,6 @@ class Ggal:
     def __str__(self):
         return "GGAL"
 
-
-
-
 class Contexto:
 
     def __init__(self):
@@ -145,12 +142,6 @@ class Contexto:
         self.contexto = random.randint(1, 9)
         self.possibilities = list(self.contextos[self.contexto].values())[0]
         subyascente.price += random.choice(self.possibilities)
-
-
-
-
-
-
 
 class Opcion:
 
@@ -207,36 +198,15 @@ class Opcion:
                 else:
                     self.prima = 0.1
 
-
-
-
-
-
-
 class Cartera:
 
     def __init__(self,efectivo):
         self.efectivo = efectivo
         self.acciones = 0
         self.opciones = 0
-        self.total_opciones = 0
         self.total = efectivo
-
-        #with open(path, "r", encoding="UTF-8") as file:
-        #    for i in file.readlines():
-        #        i.replace("\n", "")
-        #        self.opciones_details.append(i.split())
-
-        print("DATOS CARGADOS!")
-
         self.suma = [0 for x in x]
         self.tenencia = df.loc[df["Cantidad"] != 0]
-
-
-
-
-
-
 
     def __str__(self):
         return "Mi Cartera"
@@ -247,18 +217,22 @@ class Cartera:
                 self.efectivo -= cant * subyascente.price
                 self.acciones += cant
 
-        cant *= 100
-
         precio_conseguido = df.loc["GGAL", "Prima"]
 
         df.loc["GGAL", "Cantidad"] = self.acciones
         df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * self.acciones
 
-        total = (df.loc["GGAL", "Valor Actual"])
+        total = (df.loc["GGAL", "Cantidad"])
 
-        df.loc["GGAL", "PP"] = (df.loc["GGAL", "PP"] * (df.loc["GGAL", "Cantidad"] - cant) + (
-                    df.loc["GGAL", "Prima"] *
-                    cant)) / total
+        print("TOTALLLLLL",total,df.loc["GGAL", "PP"],cant)
+
+        if cant > 0:
+            try:
+                df.loc["GGAL", "PP"] = round((df.loc["GGAL", "PP"] * (total - cant) + (
+                        df.loc["GGAL", "Prima"] *
+                        cant)) / total,2)
+            except ZeroDivisionError:
+                df.loc["GGAL","PP"] = 0
 
         recta = [round((x - precio_conseguido)*cant,2) for x in x]
 
@@ -273,41 +247,41 @@ class Cartera:
 
 
 
-    def buy_opc(self,cant,name,market,prima,lote=100):
-        list = name.split("_")
+    def buy_opc(self,cant,name,market,lote=100):
+        """
+        Baja efectivo
+        """
         if market == "y":
             if self.efectivo >= cant * lote * df.loc[name,"Prima"]:
+                print("ENTRAAAAAAA")
                 self.efectivo -= cant * lote * df.loc[name,"Prima"]
 
-        pass
+
 
 
 
     def actualizar_tenencia(self,tenencia):
         self.tenencia = tenencia
 
-        print("ENTRA")
+        print("PRIMIIIIIII ",self.tenencia)
 
         #Reuno los datos para pasarselo a la función
         total = list()
         for i in range(len(self.tenencia)):
-            data = self.tenencia.index[i].split("_")
-            data = [data[1],data[2]]
-            total.append(data+list(self.tenencia.iloc[i]))
-        print(total)
+            if self.tenencia.index[i] == "GGAL":
+                total.append(["GGAL",self.tenencia.loc["GGAL","Prima"],self.tenencia.loc["GGAL","Cantidad"]])
+            else:
+                data = self.tenencia.index[i].split("_")
+                data = [data[1],data[2]]
+                total.append(data+list(self.tenencia.iloc[i]))
         self.suma = graph(total)
 
-
-        # for i in range(len(tenencia)):
-        #    print(list(tenencia.iloc[i]))
 
 
 
     def actualizar(self):
-        self.opciones = list(df.loc[df["Cantidad"] != 0, "Tenencia"])
-        self.total_opciones = round(sum(self.opciones),2)
-        self.total = self.efectivo + self.acciones * subyascente.price + self.total_opciones
-
+        self.opciones = round(sum(list(df.loc[df["Cantidad"] != 0, "Tenencia"])),2)
+        print(self.opciones)
 
 
 
@@ -347,13 +321,14 @@ def graph(details):
     suma = [0 for x in x]
 
     for i in details:
+        print(i)
         for j in range(len(suma)):
-            suma[j] += y_graph(i[0],float(i[1]),i[2],i[3])[j]
+            if len(i) == 3:
+                suma[j] += [(x-i[1]) * i[2] for x in x][j]
+            else:
+                suma[j] += y_graph(i[0],float(i[1]),i[2],i[3])[j]
     print(suma)
     return suma
-
-
-
 
 def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C"):
     """
@@ -385,14 +360,6 @@ def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C"):
     except:
         return "Error"
 
-
-
-
-
-
-
-
-
 def comprar(activo,cant_comprada=1):
     """
     Comprar un activo, actualizar el DataFrame
@@ -405,35 +372,29 @@ def comprar(activo,cant_comprada=1):
         print("VENDIENDO", opcion.get())
 
     if activo == "GGAL":
-        mi_cartera.buy_ggal(cant_comprada)
+        mi_cartera.buy_ggal(cant_comprada * 100)
     else:
-        mi_cartera.buy_opc(cant_comprada,activo,True,df.loc[activo,"Prima"]) #cantidad,activo,market,prima
-
-
+        mi_cartera.buy_opc(cant_comprada,activo,"y")
         #Actualizo DataFrame
         df.loc[activo, "Cantidad"] += cant_comprada  # Nueva Cantidad
         total = (df.loc[activo, "Cantidad"])
 
-
-        df.loc[activo, "PP"] = (df.loc[activo, "PP"] * (df.loc[activo, "Cantidad"] - cant_comprada) + (df.loc[activo, "Prima"] *
-                                    cant_comprada)) / total
-
+        if cant_comprada > 0:
+            try:
+                df.loc[activo, "PP"] = round((df.loc[activo, "PP"] * (df.loc[activo, "Cantidad"] - cant_comprada) + (df.loc[activo, "Prima"] *
+                                        cant_comprada)) / total,2)
+            except ZeroDivisionError:
+                df.loc[activo, "PP"] = 0
 
         df.loc[activo, "Tenencia"] = df.loc[activo, "Prima"] * df.loc[activo, "Cantidad"] * 100 # Tenencia
 
+    df.loc[activo, "Cantidad"] = int(df.loc[activo, "Cantidad"])
+
+
     mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0,["Prima","Cantidad"]])
-
-    print()
-
-
-
 
     time.sleep(0.5)
     actualizar()
-
-
-
-
 
 def mostrar_cartera():
     """
@@ -545,14 +506,13 @@ def actualizar():
             renglon += 1
 
 
+    mi_cartera.actualizar()
+
+    text3["text"] = "EFECTIVO: ${} \n\nACT. VALORIZADOS: ${} \n\nDÍAS DESDE EL INICIO: {} \n\nCONTEXTO \n{}".format\
+        (mi_cartera.efectivo,mi_cartera.opciones,mi_contexto.vto,mi_contexto)
 
 
-    text3["text"] = "EFECTIVO ${} OPCIONES ${}    -     DÍAS DESDE EL INICIO --> {}    - CONTEXTO --> {}".format\
-        (mi_cartera.efectivo,mi_cartera.total_opciones,mi_contexto.vto,mi_contexto)
 
-    #print(mi_cartera.opciones_details)
-
-    #print("EN CARTERA: ", mi_cartera.tenencia)
 
 
 
@@ -563,6 +523,9 @@ def guardar_datos(file):
     Guarda la posición en formato .txt
     """
     with open(file,"w",encoding="utf-8") as file:
+        file.write(str(round(subyascente.price,2))+"\n")
+        file.write(str(round(mi_cartera.efectivo,2))+"\n")
+
         for i in list(mi_cartera.tenencia.index):
             renglon = [i]+list(df.loc[i])
             print(renglon)
@@ -627,12 +590,22 @@ def variables():
 
     # Cargando Tenencia
 
-    with open(path,"r",encoding="utf-8") as file:
-        for i in file.readlines():
-            i = i.split(" ")
-            i.remove("\n")
 
-        df.loc[i[0]] = [round(float(i[1]),2),round(float(i[2]),2),round(float(i[3]),2),round(float(i[4]),2),int(i[5]),round(float(i[6]),2)]
+    with open(path,"r",encoding="utf-8") as file:
+        try:
+            subyascente.price = float(file.readline())
+
+            mi_cartera.efectivo =  float(file.readline())
+            for i in file.readlines():
+                i = i.split(" ")
+                i.remove("\n")
+
+
+                df.loc[i[0]] = [round(float(i[1]),2), round(float(i[2]),2), round(float(i[3]),2),
+                                round(float(i[4]),2), int(i[5]), round(float(i[6]),2)]
+        except:
+            pass
+
     mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
 
 def init_tkinter():
@@ -654,7 +627,7 @@ def init_tkinter():
     text2 = tk.Text(root)
     text2.place(x=600, height=550, width=520)
     text3 = tk.Label(root, text="")
-    text3.place(x="415", y="575")
+    text3.place(x=1450, y=425)
     text4 = tk.Text(root)
     text4.place(x=1150, y=425, height=100, width=200)
 
@@ -686,7 +659,7 @@ def init_tkinter():
     check_parar = Checkbutton(root, variable="parar", command=pausa, text="Pausa", onvalue=True, offvalue=False,
                               width=5)
     parar.set(False)
-    check_parar.place(x="1500", y="500")
+    check_parar.place(x="275", y="567")
 
     # Grafico
     figure = plt.figure(figsize=(5, 4), dpi=100)
