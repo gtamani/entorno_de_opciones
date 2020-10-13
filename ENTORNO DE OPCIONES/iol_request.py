@@ -6,7 +6,6 @@ def log_in():
     """
     Establece conexión con la API-REST de InvertirOnline
     """
-    print("ESTABLECIENDO CONEXION")
 
     url = "https://api.invertironline.com/token"
 
@@ -28,14 +27,11 @@ def get_options(bearer_token):
     También devuelve el OPEX (OPtion Expiration Date)
     """
 
-    print("ENTRANDO A OPCIONES")
-
     headers = {"Authorization":"Bearer "+bearer_token}
     r2 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Opciones",
                                 headers = headers)
 
     opciones_GGAL = json.loads(r2.text)
-    print(opciones_GGAL)
 
     opc = []
 
@@ -51,9 +47,6 @@ def get_ggal(bearer_token):
     """
     Obtenemos precios de GGAL
     """
-
-    print("ENTRANDO A GGAL")
-
     headers = {"Authorization": "Bearer " + bearer_token}
 
     r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Cotizacion",
@@ -71,7 +64,6 @@ def get_opex(string):
     year,month,day = int(string[:4]),\
                      int(string[5:7]),\
                      int(string[8:10])
-    print(year,month,day)
     opex = datetime(year,month,day)
     today = datetime.today()
     remains = (opex - today).days

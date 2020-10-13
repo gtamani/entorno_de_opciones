@@ -56,6 +56,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
 from scipy.stats import norm
 import iol_request
+from hilo_request import Hilo_update
 
 
 
@@ -284,15 +285,16 @@ class Cartera:
                 total.append(["GGAL",self.tenencia.loc["GGAL","Prima"],self.tenencia.loc["GGAL","Cantidad"]])
             else:
                 data = self.tenencia.index[i].split("_")
+                print()
+                print("DATAA      ", data)
                 if mi_contexto.environment == 1:
                     data = [data[1], data[2]]
                 else:
                     data = data[0]
                     print("INDEX            ",df.index.get_loc(data))
-                    data = [data[3],opciones[df.index.get_loc(data)].base]
-                    pass
+                    print(len(opciones))
+                    data = [data[3],opciones[df.index.get_loc(data)+1].base]
 
-                print("DATA      ",data)
                 total.append(data+list(self.tenencia.iloc[i]))
         self.suma = graph(total)
 
@@ -416,7 +418,6 @@ def comprar(activo,cant_comprada=1):
 
     mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0,["Prima","Cantidad"]])
 
-    time.sleep(0.5)
     actualizar()
 
 def mostrar_cartera():
@@ -451,26 +452,36 @@ def actualizar():
 
             #Actualizo GGAL
             subyascente.price += random.choice(mi_contexto.possibilities)
-            df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
-            df.loc["GGAL", "Prima"] = subyascente.price
-            df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
-            if mi_cartera.acciones == 0:
-                df.loc["GGAL","PP"] = 0
+    else:
+        subyascente.price = hilo.ggal
+
+    df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
+    df.loc["GGAL", "Prima"] = subyascente.price
+    df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
+    if mi_cartera.acciones == 0:
+        df.loc["GGAL", "PP"] = 0
 
 
 
     #Actualizo gráfico
     figure.clear()
+
+    medio = min([(abs(x[z]-subyascente.price),z) for z in range(len(x))])[1]
+
     figure = plt.figure(figsize=(5, 4), dpi=100)
     ax1 = figure.add_subplot(111)
-    ax1.plot(x, mi_cartera.suma)
+    ax1.plot(x[medio-ancho:medio+ancho], mi_cartera.suma[medio-ancho:medio+ancho])
+
     if any(mi_cartera.suma) is False:
         rango = [0,100]
     else:
-        rango = mi_cartera.suma
+        rango = mi_cartera.suma[medio-ancho:medio+ancho]
 
     ax2 = figure.add_subplot(111)
-    ax2.plot((subyascente.price, subyascente.price), (max(rango), min(rango)))
+    try:
+        ax2.plot((subyascente.price, subyascente.price), (max(rango), min(rango)))
+    except:
+        ax2.plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
     ax3 = figure.add_subplot(111)
     ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
 
@@ -478,7 +489,7 @@ def actualizar():
     ax1.set_ylabel("($) Ganancia")
     ax1.xaxis.set_major_formatter(ticks_x)
     ax1.yaxis.set_major_formatter(ticks_y)
-    plt.xlim(subyascente.price-40,subyascente.price+40)
+    plt.xlim(subyascente.price-(ancho*mostrar_ancho),subyascente.price+(ancho*mostrar_ancho))
 
     #SUBPLOT = 1 RENGLON, 1 COLUMNA, POSICIÓN 1
     chart = FigureCanvasTkAgg(figure, root)
@@ -543,10 +554,9 @@ def actualizar():
                 renglon += 1
     elif mi_contexto.environment != 1: #Entorno Real
 
-        subyascente.price = iol_request.get_ggal(bearer_token)
 
         if parar.get:
-            opc, vto = iol_request.get_options(bearer_token)
+            opc, vto = hilo.opciones, hilo.vencimiento_opc
 
         print(len(opc), len(opciones))
 
@@ -558,6 +568,7 @@ def actualizar():
 
             if df.loc[opciones[i].ticker, "Cantidad"] != 0:
                 try:
+                    df.loc[opciones[i].ticker, "Cantidad"] = int(df.loc[opciones[i].ticker, "Cantidad"])
                     df.loc[opciones[i].ticker, "Rendimiento"] = round(
                         ((df.loc[opciones[i].ticker, "Prima"] - df.loc[opciones[i].ticker, "PP"]) / df.loc[opciones[i].ticker, "PP"]) * 100, 2)
                 except ZeroDivisionError:
@@ -583,6 +594,10 @@ def actualizar():
                 else:
                     text2.tag_config(etiqueta, background="#F1948A", foreground="black")
                 renglon += 1
+
+    print("ANCHOOOOO",ancho)
+
+    print(df)
 
 
 
@@ -610,7 +625,8 @@ def guardar_datos(file):
     Guarda la posición en formato .txt
     """
     with open(file,"w",encoding="utf-8") as file:
-        file.write(str(round(subyascente.price,2))+"\n")
+        if mi_contexto.environment == 1:
+            file.write(str(round(subyascente.price,2))+"\n")
         file.write(str(round(mi_cartera.efectivo,2))+"\n")
 
         for i in list(mi_cartera.tenencia.index):
@@ -620,6 +636,41 @@ def guardar_datos(file):
                 file.write(str(j) + " ")
             file.write("\n")
     print("GUARDADO!")
+
+def cargar_datos():
+
+    with open(path, "r", encoding="utf-8") as file:
+        try:
+            if mi_contexto.environment == 1:
+                subyascente.price = float(file.readline())
+
+            mi_cartera.efectivo = float(file.readline())
+            for i in file.readlines():
+                i = i.split(" ")
+                i.remove("\n")
+                print("CANT: ",int(i[5]))
+
+                df.loc[i[0]] = [round(float(i[1]), 2), round(float(i[2]), 2), round(float(i[3]), 2),
+                                round(float(i[4]), 2), int(i[5]), round(float(i[6]), 2)]
+        except:
+            pass
+
+    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+
+def ancho_tabla(num):
+    """
+    Controla la botonera del gráfico
+    """
+    global ancho, mostrar_ancho
+
+    if ancho + num in [x*5 for x in range(1,11)]:
+        ancho += num
+        mostrar_ancho = 1.8
+    elif ancho + (num//5) in [x for x in range(2,5)] or ancho == 4:
+        ancho += (num//5)
+        mostrar_ancho = 1
+
+
 
 def clicked(value):
     """
@@ -651,7 +702,7 @@ def loop():
             t2 = time.time()
             print(round((t2-t1),2)," seg. en dar una vuelta.")
             t1 = time.time()
-        time.sleep(2)
+        time.sleep(0.5)
         root.update()
         i += 1
 
@@ -664,7 +715,6 @@ def v_1():
     # Creando Objetos
     subyascente = Ggal(125)
     mi_cartera = Cartera(100000)
-    opciones = list()
 
     df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
 
@@ -674,47 +724,27 @@ def v_1():
             df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
             opciones.append(new)
 
-
-    # Cargando Tenencia
-
-    with open(path, "r", encoding="utf-8") as file:
-        try:
-            subyascente.price = float(file.readline())
-
-            mi_cartera.efectivo = float(file.readline())
-            for i in file.readlines():
-                i = i.split(" ")
-                i.remove("\n")
-
-                df.loc[i[0]] = [round(float(i[1]), 2), round(float(i[2]), 2), round(float(i[3]), 2),
-                                round(float(i[4]), 2), int(i[5]), round(float(i[6]), 2)]
-        except:
-            pass
-
-    print(df)
-    print("HAY ",len(opciones)," OPCIONES")
-
-    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+    cargar_datos()
 
 def v_2():
     """
     Variables para entornos que necesitan autenticación con la API
     """
-    global bearer_token, refresh_roken, mi_cartera, subyascente, opciones, days_to_opex
-    print("CARGANDO COTIZACIONES")
-    print()
+    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo
 
     subyascente = Ggal()
     mi_cartera = Cartera(100000)
 
-    bearer_token, refresh_token = iol_request.log_in()
-    opc, vto = iol_request.get_options(bearer_token)
-    days_to_opex = iol_request.get_opex(vto)
+    hilo = Hilo_update("update")
+    hilo.start()
 
-    print(opc)
+    time.sleep(5)
+    input("Presione Enter cuando se actualice ")
 
-    opciones = list()
-    subyascente.price = iol_request.get_ggal(bearer_token)
+    opc, vto = hilo.opciones, hilo.vencimiento_opc
+    days_to_opex = hilo.days_to_opex
+
+    subyascente.price = hilo.ggal
 
     df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
 
@@ -723,21 +753,21 @@ def v_2():
         df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
         opciones.append(new)
 
-    print(df)
+    cargar_datos()
 
 def variables():
     """
     Seteo variables generales
     """
-    global x,df,ticks_x,ticks_y,opex
+    global x,ticks_x,ticks_y,opex,df,opciones,ancho,mostrar_ancho
 
     df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
     df.set_index("Serie", inplace=True)
     x = [x for x in range(20, 300, 2)]
     ticks_x = ticker.FuncFormatter(lambda x, pos: "{:.0f}".format(x))
     ticks_y = ticker.FuncFormatter(lambda y, pos: "{:.2f}K".format(y / 1000))
-
-    print(df)
+    opciones = list()
+    ancho, mostrar_ancho = 20,1.8
 
     if mi_contexto.environment == 1:
         v_1()
@@ -783,12 +813,19 @@ def init_tkinter():
                 y += 16
 
     # Botones
+
     button2 = tk.Button(root, text="Comprar", command=lambda: comprar(opcion.get()))
     button2.place(x="125", y="567")
     button3 = tk.Button(root, text="Vender", command=lambda: comprar(opcion.get(), -1))
     button3.place(x="200", y="567")
     button4 = tk.Button(root, text = "Guardar",command = lambda: guardar_datos(path))
     button4.place(x="1200", y="550")
+    button5 = tk.Button(root, text="{:3}".format("+"),command= lambda: ancho_tabla(-5))
+    button5.place(x="1670", y="100")
+    button6 = tk.Button(root, text=" {:3}".format("-"), command=lambda: ancho_tabla(+5))
+    button6.place(x="1670", y="130")
+
+
 
     # CheckButton - parar tiempo
     parar = IntVar()
@@ -815,10 +852,11 @@ def main():
     """
     Defino variables principales
     """
-    global mi_contexto
+    global mi_contexto,path
 
     environment = ask_enviroment()
     mi_contexto = Contexto(environment)
+    path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/env" + str(mi_contexto.environment) + "_posicion.txt"
 
     print("MI CONTEXTO: ",mi_contexto.environment)
 
@@ -849,7 +887,7 @@ def ask_enviroment():
 
 
 
-path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/posicion.txt"
+
 
 
 
@@ -858,8 +896,6 @@ path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/posicion
 
 main()
 root.mainloop()
-
-print("SE SALIOOOOOOOOOOO")
 
 
 
