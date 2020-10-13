@@ -55,6 +55,8 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
 from scipy.stats import norm
+import iol_request
+
 
 
 """
@@ -109,7 +111,7 @@ root.mainloop()
 
 class Ggal:
 
-    def __init__(self,price):
+    def __init__(self,price = 0):
         self.price = price
         self.pendientes = 0
 
@@ -118,7 +120,10 @@ class Ggal:
 
 class Contexto:
 
-    def __init__(self):
+    def __init__(self,environment):
+        self.environment = environment
+
+
         self.contextos = {1:{"Subiendo, muy volátil":[round(x,2) for x in np.arange(-1,4,0.1)]},
                      2:{"Subiendo, volatilidad media":[round(x,2) for x in np.arange(-1,3,0.1)]},
                      3:{"Subiendo, poca volatilidad": [round(x,2) for x in np.arange(-1,2,0.1)]},
@@ -129,7 +134,6 @@ class Contexto:
                      8:{"Bajando, volatilidad media": [round(x,2) for x in np.arange(-3,1,0.1)]},
                      9:{"Bajando, poca volatilidad": [round(x,2) for x in np.arange(-2,1,0.1)]}
                      }
-
         self.contexto = random.randint(1,9)
         self.possibilities = list(self.contextos[self.contexto].values())[0]
         self.vto = 0
@@ -145,12 +149,15 @@ class Contexto:
 
 class Opcion:
 
-    def __init__(self,base,side):
+    def __init__(self,base,side,ticker,prima=0):
         self.base = base
         self.side = side
-        self.ticker = "GGAL"+"_"+self.side+"_"+str(self.base)+"_10"
-        self.arbitrado = True
+        self.ticker = "GGAL_" + self.side + "_" + str(self.base) + "_10"
 
+        if mi_contexto == 1:
+            self.arbitrado = True
+        else:
+            self.arbitrado = None
 
         if self.side == "C":
             if subyascente.price >= self.base:
@@ -166,6 +173,11 @@ class Opcion:
             else:
                 self.prima = 0.1
                 self.estado = False
+
+        if mi_contexto != 1:
+            self.ticker = ticker
+            self.prima = prima
+
 
 
     def __str__(self):
@@ -272,7 +284,15 @@ class Cartera:
                 total.append(["GGAL",self.tenencia.loc["GGAL","Prima"],self.tenencia.loc["GGAL","Cantidad"]])
             else:
                 data = self.tenencia.index[i].split("_")
-                data = [data[1],data[2]]
+                if mi_contexto.environment == 1:
+                    data = [data[1], data[2]]
+                else:
+                    data = data[0]
+                    print("INDEX            ",df.index.get_loc(data))
+                    data = [data[3],opciones[df.index.get_loc(data)].base]
+                    pass
+
+                print("DATA      ",data)
                 total.append(data+list(self.tenencia.iloc[i]))
         self.suma = graph(total)
 
@@ -282,6 +302,9 @@ class Cartera:
     def actualizar(self):
         self.opciones = round(sum(list(df.loc[df["Cantidad"] != 0, "Tenencia"])),2)
         print(self.opciones)
+
+
+
 
 
 
@@ -412,25 +435,28 @@ def actualizar():
 
     plt.close()
 
+    t1 = time.time()
+
     #Destruyo texto anterior y creo el nuevo
     text1.delete("1.0", "end")
     text2.delete("1.0", "end")
     text4.delete("1.0", "end")
 
+    if mi_contexto.environment == 1:
+        if parar.get() == 0:
+            #Paso del tiempo
+            mi_contexto.vto += 1
+            if mi_contexto.vto % 15 == 0:
+                mi_contexto.sortear_contexto()
 
-    if parar.get() == 0:
-        #Paso del tiempo
-        mi_contexto.vto += 1
-        if mi_contexto.vto % 15 == 0:
-            mi_contexto.sortear_contexto()
+            #Actualizo GGAL
+            subyascente.price += random.choice(mi_contexto.possibilities)
+            df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
+            df.loc["GGAL", "Prima"] = subyascente.price
+            df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
+            if mi_cartera.acciones == 0:
+                df.loc["GGAL","PP"] = 0
 
-        #Actualizo GGAL
-        subyascente.price += random.choice(mi_contexto.possibilities)
-        df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
-        df.loc["GGAL", "Prima"] = subyascente.price
-        df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
-        if mi_cartera.acciones == 0:
-            df.loc["GGAL","PP"] = 0
 
 
     #Actualizo gráfico
@@ -458,58 +484,119 @@ def actualizar():
     chart = FigureCanvasTkAgg(figure, root)
     chart.get_tk_widget().place(x=1150)
 
-    text1.insert(tk.INSERT, df.iloc[[x for x in range(1, len(df) - 1, 2)]].to_string())  # Calls
-    text2.insert(tk.INSERT, df.iloc[[x for x in range(2, len(df), 2)]].to_string())  # Puts
-    text4.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())  # GGAL
 
+    if mi_contexto.environment == 1:
+        text1.insert(tk.INSERT, df.iloc[[x for x in range(1, len(df) - 1, 2)]].to_string())  # Calls
+        text2.insert(tk.INSERT, df.iloc[[x for x in range(2, len(df), 2)]].to_string())  # Puts
+        text4.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())  # GGAL
+    else:
+        text1.insert(tk.INSERT, df.iloc[[x for x in range(1,len(df)) if df.index[x][3] == "C"]].to_string())  # Calls
+        text2.insert(tk.INSERT, df.iloc[[x for x in range(1,len(df)) if df.index[x][3] == "V"]].to_string())  # Puts
+        text4.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())  # GGAL
+
+    #print([x for x in range(len(df)) if df.iloc[x,"Serie"][3] == "C"].to_string())
+    print(len(df))
+    print("LETRA:", [x for x in range(1,len(df)) if df.index[x][3] == "C"])
+    print("LETRA:", [x for x in range(1,len(df)) if df.index[x][3] == "V"])
 
 
     renglon = 1
-    for i in opciones:
-        #Actualizar precios de prima
-        i.restar_día(random.choice([True,False,False,False,False]))
-        i.actualizar_prima()
 
+    if mi_contexto.environment == 1: #Entorno Práctica
+        for i in opciones:
+            #Actualizar precios de prima
+            i.restar_día(random.choice([True,False,False,False,False]))
+            i.actualizar_prima()
 
-        if i.arbitrado:
-            df.loc[i.ticker,"Prima"] = round(i.prima,2)
+            if i.arbitrado:
+                df.loc[i.ticker,"Prima"] = round(i.prima,2)
 
-        df.loc[i.ticker,"B&Sch"] = calculo_blackScholes(subyascente.price,i.base,68/360,i.side)
-        df.loc[i.ticker, "Tenencia"] = df.loc[i.ticker, "Prima"] * df.loc[i.ticker, "Cantidad"] * 100
+            df.loc[i.ticker,"B&Sch"] = calculo_blackScholes(subyascente.price,i.base,68/360,i.side)
+            df.loc[i.ticker, "Tenencia"] = df.loc[i.ticker, "Prima"] * df.loc[i.ticker, "Cantidad"] * 100
 
-        if df.loc[i.ticker, "Cantidad"] != 0:
-            try:
-                df.loc[i.ticker, "Rendimiento"] = round(((df.loc[i.ticker, "Prima"] - df.loc[i.ticker, "PP"]) / df.loc[i.ticker, "PP"]) * 100, 2)
-            except ZeroDivisionError:
+            if df.loc[i.ticker, "Cantidad"] != 0:
+                try:
+                    df.loc[i.ticker, "Rendimiento"] = round(((df.loc[i.ticker, "Prima"] - df.loc[i.ticker, "PP"]) / df.loc[i.ticker, "PP"]) * 100, 2)
+                except ZeroDivisionError:
+                    df.loc[i.ticker, "Rendimiento"] = 0
+            else:
+                df.loc[i.ticker, "PP"] = 0
                 df.loc[i.ticker, "Rendimiento"] = 0
-        else:
-            df.loc[i.ticker, "PP"] = 0
-            df.loc[i.ticker, "Rendimiento"] = 0
 
 
-        #Colores a las opciones
-        etiqueta, inicio, fin = "et" + str(renglon) + i.side, str(renglon + 2) + ".0", str(renglon + 3) + ".0"
+            #Colores a las opciones DUPLICADOOOOOOOOOOOOOOOOOOOOOOOOO
+            etiqueta, inicio, fin = "et" + str(renglon) + i.side, str(renglon + 2) + ".0", str(renglon + 3) + ".0"
 
-        if i.side == "C":
-            text1.tag_add(etiqueta, inicio, fin)
-            if i.estado:
-                text1.tag_config(etiqueta, background="#76D7C4", foreground="black")
+            if i.side == "C":
+                text1.tag_add(etiqueta, inicio, fin)
+                if i.estado:
+                    text1.tag_config(etiqueta, background="#76D7C4", foreground="black")
+                else:
+                    text1.tag_config(etiqueta, background="#F1948A", foreground="black")
+
             else:
-                text1.tag_config(etiqueta, background="#F1948A", foreground="black")
+                text2.tag_add(etiqueta, inicio, fin)
+                if i.estado:
+                    text2.tag_config(etiqueta, background="#76D7C4", foreground="black")
+                else:
+                    text2.tag_config(etiqueta, background="#F1948A", foreground="black")
+                renglon += 1
+    elif mi_contexto.environment != 1: #Entorno Real
 
-        else:
-            text2.tag_add(etiqueta, inicio, fin)
-            if i.estado:
-                text2.tag_config(etiqueta, background="#76D7C4", foreground="black")
+        subyascente.price = iol_request.get_ggal(bearer_token)
+
+        if parar.get:
+            opc, vto = iol_request.get_options(bearer_token)
+
+        print(len(opc), len(opciones))
+
+        for i in range(len(opciones)):
+            df.loc[opciones[i].ticker,"Prima"] = opc[i][1]
+
+            df.loc[opciones[i].ticker, "B&Sch"] = calculo_blackScholes(subyascente.price, opciones[i].base, days_to_opex/365, opciones[i].side)
+            df.loc[opciones[i].ticker, "Tenencia"] = df.loc[opciones[i].ticker, "Prima"] * df.loc[opciones[i].ticker, "Cantidad"] * 100
+
+            if df.loc[opciones[i].ticker, "Cantidad"] != 0:
+                try:
+                    df.loc[opciones[i].ticker, "Rendimiento"] = round(
+                        ((df.loc[opciones[i].ticker, "Prima"] - df.loc[opciones[i].ticker, "PP"]) / df.loc[opciones[i].ticker, "PP"]) * 100, 2)
+                except ZeroDivisionError:
+                    df.loc[opciones[i].ticker, "Rendimiento"] = 0
             else:
-                text2.tag_config(etiqueta, background="#F1948A", foreground="black")
-            renglon += 1
+                df.loc[opciones[i].ticker, "PP"] = 0
+                df.loc[opciones[i].ticker, "Rendimiento"] = 0
+
+            # Colores a las opciones DUPLICADOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+            # VER opciones[i]
+            etiqueta, inicio, fin = "et" + str(renglon) + opciones[i].side, str(renglon + 2) + ".0", str(renglon + 3) + ".0"
+
+            if opciones[i].side == "C":
+                text1.tag_add(etiqueta, inicio, fin)
+                if opciones[i].estado:
+                    text1.tag_config(etiqueta, background="#76D7C4", foreground="black")
+                else:
+                    text1.tag_config(etiqueta, background="#F1948A", foreground="black")
+            else:
+                text2.tag_add(etiqueta, inicio, fin)
+                if opciones[i].estado:
+                    text2.tag_config(etiqueta, background="#76D7C4", foreground="black")
+                else:
+                    text2.tag_config(etiqueta, background="#F1948A", foreground="black")
+                renglon += 1
+
+
+
+
+
 
 
     mi_cartera.actualizar()
 
     text3["text"] = "EFECTIVO: ${} \n\nACT. VALORIZADOS: ${} \n\nDÍAS DESDE EL INICIO: {} \n\nCONTEXTO \n{}".format\
         (mi_cartera.efectivo,mi_cartera.opciones,mi_contexto.vto,mi_contexto)
+
+    t2 = time.time()
+    print("ACTUALIZO",(t2-t1))
 
 
 
@@ -557,56 +644,105 @@ def loop():
     Loop principal
     """
     i = 0
+    t1 = time.time()
     while 1:
         if i % 4 == 0:
             actualizar()
-        time.sleep(0.5)
+            t2 = time.time()
+            print(round((t2-t1),2)," seg. en dar una vuelta.")
+            t1 = time.time()
+        time.sleep(2)
         root.update()
         i += 1
 
-def variables():
-    global x,opciones,subyascente,mi_cartera,mi_contexto,df,ticks_x,ticks_y
-    # Variables
-    df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
-    df.set_index("Serie", inplace=True)
-    x = [x for x in range(20, 300, 2)]
-    ticks_x = ticker.FuncFormatter(lambda x, pos: "{:.0f}".format(x))
-    ticks_y = ticker.FuncFormatter(lambda y, pos: "{:.2f}K".format(y / 1000))
-
+def v_1():
+    """
+    Variables entorno práctica
+    """
+    global opciones,subyascente,mi_cartera
 
     # Creando Objetos
     subyascente = Ggal(125)
     mi_cartera = Cartera(100000)
-    mi_contexto = Contexto()
     opciones = list()
 
     df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
 
     for i in range(98, 189, 3):
         for j in ["C", "V"]:
-            new = Opcion(i, j)
+            new = Opcion(i, j,"GGAL_"+j+"_"+str(i)+"_10",1)
             df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
             opciones.append(new)
 
+
     # Cargando Tenencia
 
-
-    with open(path,"r",encoding="utf-8") as file:
+    with open(path, "r", encoding="utf-8") as file:
         try:
             subyascente.price = float(file.readline())
 
-            mi_cartera.efectivo =  float(file.readline())
+            mi_cartera.efectivo = float(file.readline())
             for i in file.readlines():
                 i = i.split(" ")
                 i.remove("\n")
 
-
-                df.loc[i[0]] = [round(float(i[1]),2), round(float(i[2]),2), round(float(i[3]),2),
-                                round(float(i[4]),2), int(i[5]), round(float(i[6]),2)]
+                df.loc[i[0]] = [round(float(i[1]), 2), round(float(i[2]), 2), round(float(i[3]), 2),
+                                round(float(i[4]), 2), int(i[5]), round(float(i[6]), 2)]
         except:
             pass
 
+    print(df)
+    print("HAY ",len(opciones)," OPCIONES")
+
     mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+
+def v_2():
+    """
+    Variables para entornos que necesitan autenticación con la API
+    """
+    global bearer_token, refresh_roken, mi_cartera, subyascente, opciones, days_to_opex
+    print("CARGANDO COTIZACIONES")
+    print()
+
+    subyascente = Ggal()
+    mi_cartera = Cartera(100000)
+
+    bearer_token, refresh_token = iol_request.log_in()
+    opc, vto = iol_request.get_options(bearer_token)
+    days_to_opex = iol_request.get_opex(vto)
+
+    print(opc)
+
+    opciones = list()
+    subyascente.price = iol_request.get_ggal(bearer_token)
+
+    df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
+
+    for i in opc:
+        new = Opcion(float(i[2]),i[0][3],i[0],float(i[1]))
+        df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
+        opciones.append(new)
+
+    print(df)
+
+def variables():
+    """
+    Seteo variables generales
+    """
+    global x,df,ticks_x,ticks_y,opex
+
+    df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
+    df.set_index("Serie", inplace=True)
+    x = [x for x in range(20, 300, 2)]
+    ticks_x = ticker.FuncFormatter(lambda x, pos: "{:.0f}".format(x))
+    ticks_y = ticker.FuncFormatter(lambda y, pos: "{:.2f}K".format(y / 1000))
+
+    print(df)
+
+    if mi_contexto.environment == 1:
+        v_1()
+    else:
+        v_2()
 
 def init_tkinter():
     """
@@ -619,7 +755,7 @@ def init_tkinter():
     root.geometry("1750x600")
     root.title("Entorno de opciones GGAL")
     root.pack_propagate(False)
-    root.resizable(0, 0)  # No puede agrandarse, ni achicarse la ventana
+    #root.resizable(0, 0)  # No puede agrandarse, ni achicarse la ventana
 
     # Cuadros calls/puts
     text1 = tk.Text(root)
@@ -679,6 +815,12 @@ def main():
     """
     Defino variables principales
     """
+    global mi_contexto
+
+    environment = ask_enviroment()
+    mi_contexto = Contexto(environment)
+
+    print("MI CONTEXTO: ",mi_contexto.environment)
 
     variables()
 
@@ -686,6 +828,23 @@ def main():
 
 
     loop()
+
+def ask_enviroment():
+    """
+    Pregunta el entorno a abrir para setear la clase Contexto
+    """
+    print("Bienvenido!")
+    print("Seleccione el entorno: ")
+    print("( 1 ) Modo Práctica")
+    print("( 2 ) Práctica - Precios Reales")
+    print("( 3 ) Tiempo Real")
+
+    opcion = 0
+    while opcion not in [1,2,3]:
+        opcion = int(input(""))
+
+    return opcion
+
 
 
 
