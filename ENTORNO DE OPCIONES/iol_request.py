@@ -27,6 +27,8 @@ def get_options(bearer_token):
     También devuelve el OPEX (OPtion Expiration Date)
     """
 
+    vencimiento = "2020-12-18T00:00:00"
+
     headers = {"Authorization":"Bearer "+bearer_token}
     r2 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Opciones",
                                 headers = headers)
@@ -37,11 +39,11 @@ def get_options(bearer_token):
 
     for i in range(len(opciones_GGAL)):
         side = opciones_GGAL[i]["tipoOpcion"]
-        if opciones_GGAL[i]["fechaVencimiento"] == "2020-10-16T00:00:00":
+        if opciones_GGAL[i]["fechaVencimiento"] == vencimiento:
                 opc.append([opciones_GGAL[i]["simbolo"],opciones_GGAL[i]["cotizacion"]["ultimoPrecio"],
                             opciones_GGAL[i]["descripcion"].split(" ")[2]])
 
-    return opc, opciones_GGAL[0]["fechaVencimiento"]
+    return opc, vencimiento
 
 def get_ggal(bearer_token):
     """
@@ -52,10 +54,18 @@ def get_ggal(bearer_token):
     r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Cotizacion",
                       headers= headers)
 
-    GGAL = json.loads(r3.text)
-    GGAL = GGAL["ultimoPrecio"]
+    try:
+        GGAL = json.loads(r3.text)
+        GGAL = GGAL["ultimoPrecio"]
+        return GGAL
+    except:
+        pass
 
-    return GGAL
+def get_ggal_adr():
+    """
+    Proximamente -  Hacer webscraping del precio de GGAL ADR y calcular el CCL
+    """
+    pass
 
 def get_opex(string):
     """
@@ -70,8 +80,10 @@ def get_opex(string):
     return remains
 
 #bearer_token, refresh_token = log_in()
-
 #opciones, opex = get_options(bearer_token)
+#print(opciones)
+#print(opex)
+#get_ggal_adr()
 
 
 

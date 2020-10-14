@@ -23,7 +23,9 @@ class Hilo_update(threading.Thread):
             self.ggal = iol_request.get_ggal(self.bearer_token)
             self.days_to_opex = iol_request.get_opex(self.vencimiento_opc)
             t2 = time.time()
-            time.sleep(20)
+
+            #time.sleep()
+
             print()
             logging.info("GGAL: "+str(self.ggal))
             logging.info("OPCIONES ACTUALIZADAS! ")
