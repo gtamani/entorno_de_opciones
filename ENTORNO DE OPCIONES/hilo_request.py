@@ -24,7 +24,7 @@ class Hilo_update(threading.Thread):
             self.days_to_opex = iol_request.get_opex(self.vencimiento_opc)
             t2 = time.time()
 
-            #time.sleep()
+            time.sleep(2)
 
             print()
             logging.info("GGAL: "+str(self.ggal))

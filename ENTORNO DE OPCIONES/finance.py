@@ -10,9 +10,9 @@ def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C"):
     interes = 0.3
     sigma = 0.3
 
+    #Maturity = tiempo al venc/365
 
 
-    #Cálculo de
     d1 = (np.log(spot/strike) + (interes + sigma**2/2)*tiempo_al_vencimiento)/(sigma*np.sqrt(tiempo_al_vencimiento))
     d2 = d1 - sigma*np.sqrt(tiempo_al_vencimiento)
 
@@ -52,25 +52,53 @@ def y_graph(side,base,prima,cant,x,lote=100):
             return [-prima * lote * cant if x >= base else round(((base-prima) - x) * lote * cant,2) for x in x]
         return [prima * lote * -cant if x >= base else round((x - (base - prima)) * lote * -cant,2) for x in x]
 
-def graph(details,x):
+def graph(details,var_x,opex=0):
     """
+    [RESULTADO AL VENCIMIENTO]
     Calcula los valores de Y para la suma de todos los activos en cartera.
     Valores que muestra el gráfico en pantalla
     """
     #print("SUMA: ",suma)
     #print("NEW: ",new)
 
-    suma = [0 for x in x]
+
+    al_vto, teorico = [0 for x in var_x],[0 for x in var_x]
+
+    print("DETAILSSSSSSSSSS\n",details,"VAR_X",var_x)
 
     for i in details:
+        #print(i[0], i[1], i[2], i[3], i[4])
+
         print(i)
-        for j in range(len(suma)):
-            if len(i) == 3:
-                suma[j] += [(x-i[1]) * i[2] for x in x][j]
-            else:
-                suma[j] += y_graph(i[0],float(i[1]),i[2],i[3],x)[j]
-    print(suma)
-    return suma
+        if len(i) == 3:
+            print("ACCION")
+            curva_vto = [(x-i[1]) * i[2] for x in var_x]
+            curva_teorico = [(x - i[1]) * i[2] for x in var_x]
+        else:
+            print("OPCION")
+            print(var_x[1],var_x[2],var_x[3],i[1],opex,i[0])
+            curva_vto = y_graph(i[0],float(i[1]),i[2],i[3],var_x)
+            curva_teorico = [(calculo_blackScholes(var_x[z],int(i[1]),opex,i[0]) - i[4]) * i[3] * 100 if i[3] >= 0 else
+                             (i[4] + calculo_blackScholes(var_x[z],int(i[1]),opex,i[0])) * i[3] * 100 for z in range(len(al_vto))]
+            print("teorico,curva",curva_teorico)
+            print()
+
+
+        for j in range(len(curva_vto)):
+            al_vto[j] += curva_vto[j]
+            teorico[j] += curva_teorico[j]
+
+
+    print(al_vto)
+    print(teorico)
+
+
+
+    return al_vto, teorico
+
+def graph2():
+    pass
+
 
 def tna_a_tea(tna,capitalize):
     """

@@ -166,7 +166,7 @@ class Cartera:
         self.efectivo = efectivo
         self.acciones = 0
         self.opciones = 0
-        self.total = efectivo
+        self.total = self.efectivo + self.acciones + self.opciones
         self.suma = [0 for x in x]
         self.tenencia = df.loc[df["Cantidad"] != 0]
 
@@ -207,6 +207,10 @@ class Cartera:
 
     def actualizar_tenencia(self,tenencia):
         self.tenencia = tenencia
+        try:
+            self.acciones = tenencia.loc["GGAL","Cantidad"]
+        except:
+            pass
 
         #Reuno los datos para pasarselo a la función
         total = list()
@@ -214,7 +218,9 @@ class Cartera:
             if self.tenencia.index[i] == "GGAL":
                 total.append(["GGAL",self.tenencia.loc["GGAL","Prima"],self.tenencia.loc["GGAL","Cantidad"]])
             else:
-                data = self.tenencia.index[i].split("_")
+                data = self.tenencia.index[i].split("_")#+self.tenencia[-1,"PP"]
+                print(self.tenencia)
+                print("DATAAAAAAAAAAAAAAAAAAAAAAAAAAA:",data)
 
                 if mi_contexto.environment == 1:
                     data = [data[1], data[2]]
@@ -223,23 +229,64 @@ class Cartera:
                     data = [data[3],opciones[df.index.get_loc(data)+1].base]
 
                 total.append(data+list(self.tenencia.iloc[i]))
-        self.suma = finance.graph(total,x)
+        self.suma,self.teorico = finance.graph(total,x,days_to_opex)
+        self.total = self.efectivo + self.acciones * subyascente.price + self.opciones
 
 
 
 
     def actualizar(self):
-        self.opciones = round(sum(list(df.loc[df["Cantidad"] != 0, "Tenencia"])),2)
+        self.opciones = round(sum(list(df.loc[df["Cantidad"] != 0 ,"Tenencia"]))-df.loc["GGAL","Tenencia"],2)
+        try:
+            self.acciones = df.loc["GGAL","Cantidad"]
+        except:
+            pass
+        self.total = round(self.efectivo + self.acciones * subyascente.price + self.opciones,2)
+
+class Changuito:
+    def __init__(self):
+        self.content = pd.DataFrame(columns=["Activo","Cantidad","Precio","$ Bruto","Comisiones","Neto"])
+        self.content.set_index("Activo",inplace=True)
+        self.comision_acciones = 0.5
+        self.comision_opciones = 1
+
+    def add(self,activo,cantidad):
+        precio = df.loc[activo,"Prima"]
+        bruto = cantidad * precio
+        if activo == "GGAL":
+            al_cometa = self.comision_acciones
+        else:
+            al_cometa = self.comision_opciones
+        comision = abs(bruto * al_cometa)
+
+        neto = bruto - comision
+
+        self.content.loc[activo] = [cantidad,precio,bruto,comision,neto]
+        print(self.content)
+        pass
+
+    def remove(self):
+        pass
+
+    def update(self):
+        pass
+
+    def send(self):
+        pass
 
 
 
 
 
-def comprar(activo,cant_comprada=1):
+
+
+def simular(activo,cant_comprada):
     """
     Comprar un activo, actualizar el DataFrame
     """
     global opcion
+
+    print(cant_comprada,"AAAAAAAAAAAAAAAAAAAAAAA")
 
     if cant_comprada == 1:
         print("COMPRANDO", opcion.get())
@@ -277,7 +324,7 @@ def comprar(activo,cant_comprada=1):
     df.loc[activo, "Cantidad"] = int(df.loc[activo, "Cantidad"])
 
 
-    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0,["Prima","Cantidad"]])
+    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad","PP"]])
 
     actualizar()
 
@@ -314,6 +361,8 @@ def actualizar():
     else:
         subyascente.price = hilo.ggal
 
+    print("MI CARTERA ACCIONES",mi_cartera.acciones)
+
     df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
     df.loc["GGAL", "Prima"] = subyascente.price
     df.loc["GGAL", "Tenencia"] = df.loc["GGAL", "Prima"] * mi_cartera.acciones
@@ -343,6 +392,8 @@ def actualizar():
         ax2.plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
     ax3 = figure.add_subplot(111)
     ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
+    ax4 = figure.add_subplot(111)
+    ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho])
 
     ax1.set_xlabel("Precio GGAL")
     ax1.set_ylabel("($) Ganancia")
@@ -375,9 +426,13 @@ def actualizar():
             botons_and_colors(a.ticker, y2, a.side, a.estado)
             y2 += 16
 
+    print("DF ACTUALIZAR")
+    print(df)
+    print("ACCIONES",mi_cartera.acciones)
+    print("OPCIONES",mi_cartera.opciones)
 
-
-
+    print(mi_cartera.teorico)
+    print(mi_cartera.suma)
 
 
 
@@ -387,16 +442,20 @@ def actualizar():
 
     mi_cartera.actualizar()
 
-    text3["text"] = "EFECTIVO: ${} \n\nACT. VALORIZADOS: ${} \n\nDÍAS DESDE EL INICIO: {} \n\nCONTEXTO \n{}".format\
-        (mi_cartera.efectivo,mi_cartera.opciones,mi_contexto.vto,mi_contexto)
+    text3["text"] = "A COMPRAR : {}" \
+                    "EFECTIVO: ${} \n\n" \
+                    "OPCIONES: ${} \n\n" \
+                    "ACCIONES: {} \n\n" \
+                    "TOTAL: {} \n\n" \
+                    "DÍAS DESDE EL INICIO: {} \n\n" \
+                    "CONTEXTO \n{}".format\
+        (cant_operar.get(),mi_cartera.efectivo,mi_cartera.opciones,round(mi_cartera.acciones*subyascente.price,2),mi_cartera.total,mi_contexto.vto,mi_contexto)
+
 
     t2 = time.time()
     print("ACTUALIZO",(t2-t1))
 
     plt.grid()
-
-
-
 
 def botons_and_colors(ticker,y,side,itm):
     """
@@ -415,10 +474,6 @@ def botons_and_colors(ticker,y,side,itm):
         text2.tag_add(etiqueta, inicio, fin)
         text2.tag_config(etiqueta, background=color, foreground="black")
 
-    """
-    if i == -1:
-        Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x="1370", y="475")
-    """
     if lap == 0:
         Radiobutton(root, var=opcion, value=ticker, command=lambda: clicked(opcion.get())).place(x=x, y=y)
 
@@ -436,7 +491,7 @@ def actualizar_df(a,b = 0):
     else:
         df.loc[a.ticker, "Prima"] = b
 
-    df.loc[a.ticker, "B&Sch"] = finance.calculo_blackScholes(subyascente.price, a.base, 68 / 360, a.side)
+    df.loc[a.ticker, "B&Sch"] = finance.calculo_blackScholes(subyascente.price, a.base, days_to_opex / 360, a.side)
     df.loc[a.ticker, "Tenencia"] = df.loc[a.ticker, "Prima"] * df.loc[a.ticker, "Cantidad"] * 100
 
     if df.loc[a.ticker, "Cantidad"] != 0:
@@ -481,6 +536,7 @@ def guardar_datos(file):
 
         for i in list(mi_cartera.tenencia.index):
             renglon = [i]+list(df.loc[i])
+            renglon[5] = int(renglon[5])
             print(renglon)
             for j in renglon:
                 file.write(str(j) + " ")
@@ -498,15 +554,18 @@ def cargar_datos():
             for i in file.readlines():
                 i = i.split(" ")
                 i.remove("\n")
-                print("CANT: ",int(i[5]))
+                print("CANT: ",int(i[5]),i)
 
                 df.loc[i[0]] = [round(float(i[1]), 2), round(float(i[2]), 2), round(float(i[3]), 2),
                                 round(float(i[4]), 2), int(i[5]), round(float(i[6]), 2)]
         except:
-            print("No pudo cargarse.")
-            pass
+            print("No hay data para cargar.")
 
-    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+    print("DF CARGAR DATOS")
+    print(df)
+    print(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+
+    mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad","PP"]])
 
 def ancho_tabla(num):
     """
@@ -521,13 +580,18 @@ def ancho_tabla(num):
         ancho += (num//5)
         mostrar_ancho = 1
 
-def clicked(value):
+def clicked(opcion,cant = 0):
     """
-    Informa por consola la compra/venta realizada
+    Informa por consola la compra/venta a realizar
     """
-    myLabel = Label(root,text=value)
-    myLabel.place(x="15",y="570")
+    ant = cant_operar.get()
+    print(ant)
+    cant_operar.set(ant+cant)
+    print
+
+
     print("CLICKED")
+    text5["text"] = "Seleccionado -->    {} un. de {}!".format(cant_operar.get(), opcion)
 
 def pausa():
     """
@@ -561,11 +625,12 @@ def v_1():
     """
     Variables entorno práctica
     """
-    global opciones,subyascente,mi_cartera
+    global opciones,subyascente,mi_cartera,days_to_opex
 
     # Creando Objetos
     subyascente = Ggal(125)
     mi_cartera = Cartera(100000)
+    days_to_opex = 60/365
 
     df.loc["GGAL"] = [subyascente.price, 0, 0, 0, 0, 0]
 
@@ -581,10 +646,12 @@ def v_2():
     """
     Variables para entornos que necesitan autenticación con la API
     """
-    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo
+    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo, df
 
     subyascente = Ggal()
     mi_cartera = Cartera(100000)
+
+    print(mi_cartera.efectivo, "EFECTIVOOOOO1")
 
     hilo = Hilo_update("update")
     hilo.start()
@@ -604,19 +671,23 @@ def v_2():
         df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
         opciones.append(new)
 
+    print("DF V2")
+    print(df)
+
     cargar_datos()
 
 def variables():
     """
     Seteo variables generales
     """
-    global x,ticks_x,ticks_y,df,opciones,ancho,mostrar_ancho
+    global x,ticks_x,ticks_y,df,opciones,ancho,mostrar_ancho,comision_acciones,mi_changuito
 
     df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
     df.set_index("Serie", inplace=True)
     x = [x for x in range(20, 300, 2)]
     ticks_x = ticker.FuncFormatter(lambda x, pos: "{:.0f}".format(x))
     ticks_y = ticker.FuncFormatter(lambda y, pos: "{:.2f}K".format(y / 1000))
+    mi_changuito = Changuito()
     opciones = list()
     ancho, mostrar_ancho = 20,1.8
 
@@ -629,7 +700,7 @@ def init_tkinter():
     """
     Creo Objetos en tkinter al iniciar el programa
     """
-    global root, text1, text2, text3, text4, parar, figure, ticks_x, ticks_y,opcion
+    global root, text1, text2, text3, text4, text5, parar, figure, ticks_x, ticks_y,opcion,cant_operar
 
     # root
     root = tk.Tk()
@@ -647,27 +718,33 @@ def init_tkinter():
     text3.place(x=1450, y=425)
     text4 = tk.Text(root)
     text4.place(x=1150, y=425, height=100, width=200)
+    text5 = tk.Label(root, text="Selecciona un activo!")
+    text5.place(x=300, y=567)
 
     # RadioButton
 
     opcion = StringVar()
+    cant_operar = IntVar()
     opcion.set(df.index[0])
-
-    print(df)
-    #ubicar_radiobuttons()
+    cant_operar.set(0)
+    Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x="1370", y="475")
 
     # Botones
 
-    button2 = tk.Button(root, text="Comprar", command=lambda: comprar(opcion.get()))
-    button2.place(x="125", y="567")
-    button3 = tk.Button(root, text="Vender", command=lambda: comprar(opcion.get(), -1))
-    button3.place(x="200", y="567")
+    button1 = tk.Button(root, text="Simular!", command=lambda: simular(opcion.get(),cant_operar.get()))
+    button1.place(x="125", y="567")
+    button2 = tk.Button(root, text="(+)", command=lambda: clicked(opcion.get(),1))
+    button2.place(x="200", y="567")
+    button3 = tk.Button(root, text="(-)", command=lambda: clicked(opcion.get(),-1))
+    button3.place(x="250", y="567")
     button4 = tk.Button(root, text = "Guardar",command = lambda: guardar_datos(path))
     button4.place(x="1200", y="550")
     button5 = tk.Button(root, text="{:3}".format("+"),command= lambda: ancho_tabla(-5))
     button5.place(x="1670", y="100")
     button6 = tk.Button(root, text=" {:3}".format("-"), command=lambda: ancho_tabla(+5))
     button6.place(x="1670", y="130")
+    button7 = tk.Button(root,text="Añadir al changuito!",command=lambda: mi_changuito.add(opcion,1))
+    button7.place(x="700",y="567")
 
 
 
@@ -676,7 +753,7 @@ def init_tkinter():
     check_parar = Checkbutton(root, variable="parar", command=pausa, text="Pausa", onvalue=True, offvalue=False,
                               width=5)
     parar.set(False)
-    check_parar.place(x="275", y="567")
+    check_parar.place(x="900", y="567")
 
     # Grafico
     figure = plt.figure(figsize=(5, 4), dpi=100)
@@ -691,26 +768,6 @@ def init_tkinter():
     chart.get_tk_widget().place(x=1150)
 
     figure.add_subplot(111).plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
-
-def ubicar_radiobuttons():
-    global opcion
-
-    opcion = StringVar()
-    opcion.set(df.index[0])
-
-    y1, y2 = 30, 30
-    for i in range(-1, len(df) - 1):
-        if i == -1:
-            Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x="1370", y="475")
-        else:
-            if i % 2 == 0:
-                Radiobutton(root, var=opcion, value=df.index[i + 1], command=lambda: clicked(opcion.get())).place(
-                    y=str(y1))
-                y1 += 16
-            else:
-                Radiobutton(root, var=opcion, value=df.index[i + 1], command=lambda: clicked(opcion.get())).place(
-                    x="570", y=str(y2))
-                y2 += 16
 
 def main():
     """
