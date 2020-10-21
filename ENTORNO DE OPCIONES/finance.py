@@ -1,32 +1,34 @@
 import numpy as np
 from scipy.stats import norm
 
-def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C"):
+def N(d):
+    return norm.cdf(d,0,1)
+
+
+def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.3,interes=0.3):
     """
     Cálculo teórico de valuación de opciones financieras.
     Parte del DataFrame.
     """
-    #Variables
-    interes = 0.3
-    sigma = 0.3
-
     #Maturity = tiempo al venc/365
-
 
     d1 = (np.log(spot/strike) + (interes + sigma**2/2)*tiempo_al_vencimiento)/(sigma*np.sqrt(tiempo_al_vencimiento))
     d2 = d1 - sigma*np.sqrt(tiempo_al_vencimiento)
+    vega = spot * N(d1) * np.sqrt(tiempo_al_vencimiento)
+
 
     try:
         if type == "C":
-            price = spot*norm.cdf(d1,0,1) - strike*np.exp(-interes*tiempo_al_vencimiento) \
-                    * norm.cdf(d2,0,1)
+            price = spot * N(d1) - strike*np.exp(-interes*tiempo_al_vencimiento) * N(d2)
         elif type == "V":
-            price = strike*np.exp(-interes*tiempo_al_vencimiento)*norm.cdf(-d2,0,1)\
-            - spot*norm.cdf(-d1,0,1)
+            price = strike * np.exp(-interes*tiempo_al_vencimiento) * N(-d2) - spot*N(-d1)
 
-        return round(price,2)
+        return round(price,2)#,d1,d2,vega
     except:
         return "Error"
+
+
+
 
 
 def y_graph(side,base,prima,cant,x,lote=100):
@@ -115,3 +117,12 @@ def tna_a_tea(tna,capitalize):
 #print("Tasa Futuro noviembre DO: ",tna_a_tea(0.4381,45))
 
 
+#prima,d1,d2,vega = calculo_blackScholes(100,90,0.3287671233,"C",0.3,0.05)
+
+#print(prima)
+#print(d1,d2)
+#print(N(d1),N(d2))
+#print(N(-d1),N(-d2))
+#print(vega)
+
+#print(volatilidad_implicita(34,30,1,0.0001,2.724,0.5))

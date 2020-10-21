@@ -1,6 +1,7 @@
 import requests
 import json
-from datetime import datetime
+from datetime import datetime,timedelta
+import pandas as pd
 
 def log_in():
     """
@@ -79,12 +80,44 @@ def get_opex(string):
     remains = (opex - today).days
     return remains
 
+def get_volatilidad_historica(bearer_token,media=58):
+    """
+    Obtenemos precios de GGAL
+    *56 días son 40 ruedas*
+    """
+    headers = {"Authorization": "Bearer " + bearer_token}
+    hasta = datetime.today()
+    desde = hasta - timedelta(days=media)
+
+    print(desde,hasta)
+
+    r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Cotizacion/seriehistorica/"+
+                          desde.strftime("%Y-%m-%d")+"/"+hasta.strftime("%Y-%m-%d")+"/ajustada",
+                      headers=headers)
+
+    df = pd.DataFrame(columns=["Día","Minimo","Máximo","Cierre"])
+    df.set_index("Día",inplace=True)
+
+    print(r3.text)
+
+
+    for i in json.loads(r3.text):
+        df.loc[i["fechaHora"][:10]] = [i["minimo"],i["maximo"],i["ultimoPrecio"]]
+
+    print(df)
+    df.to_excel('example.xls', sheet_name='Volatilidad Histótica')
+
+
+
 #bearer_token, refresh_token = log_in()
+
 #opciones, opex = get_options(bearer_token)
 #print(opciones)
 #print(opex)
-#get_ggal_adr()
 
+#get_ggal_adr()
+#print("BEARER TOKEN: ",bearer_token)
+#print(get_volatilidad_historica(bearer_token))
 
 
 

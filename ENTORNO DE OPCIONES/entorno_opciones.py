@@ -57,6 +57,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
 from hilo_request import Hilo_update
 import finance
+import os
+import desarbitrajes
 
 
 class Ggal:
@@ -390,10 +392,10 @@ def actualizar():
         ax2.plot((subyascente.price, subyascente.price), (max(rango), min(rango)))
     except:
         ax2.plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
-    ax3 = figure.add_subplot(111)
-    ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
-    ax4 = figure.add_subplot(111)
-    ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho])
+    #ax3 = figure.add_subplot(111)
+    #ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
+    #ax4 = figure.add_subplot(111)
+    #ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho])
 
     ax1.set_xlabel("Precio GGAL")
     ax1.set_ylabel("($) Ganancia")
@@ -438,7 +440,9 @@ def actualizar():
 
 
 
-
+    os.system("cls")
+    desarbitrajes.main("C",opciones)
+    desarbitrajes.main("V",opciones)
 
     mi_cartera.actualizar()
 
@@ -777,7 +781,7 @@ def main():
 
     environment = ask_enviroment()
     mi_contexto = Contexto(environment)
-    path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/env" + str(mi_contexto.environment) + "_posicion.txt"
+    path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/data/env" + str(mi_contexto.environment) + "_posicion.txt"
 
     print("MI CONTEXTO: ",mi_contexto.environment)
 
