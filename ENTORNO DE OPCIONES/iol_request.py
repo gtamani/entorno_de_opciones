@@ -22,6 +22,19 @@ def log_in():
 
     return access["access_token"], access["refresh_token"]
 
+def refresh(refresh_token):
+    """
+    Antes que se cumplan 15 minutos hay que refrescar para que el token siga activo
+    """
+    url = "https://api.invertironline.com/token"
+
+    data = {"refresh_token":refresh_token,
+            "grant_type":"refresh_token"}
+
+    r = requests.post(url = url, data = data)
+    access = json.loads(r.text)
+    return access["access_token"], access["refresh_token"]
+
 def get_options(bearer_token):
     """
     Obtenemos listas con las opciones del próximo ejercicio
@@ -35,6 +48,7 @@ def get_options(bearer_token):
                                 headers = headers)
 
     opciones_GGAL = json.loads(r2.text)
+    print(opciones_GGAL)
 
     opc = []
 
@@ -107,13 +121,34 @@ def get_volatilidad_historica(bearer_token,media=58):
     print(df)
     df.to_excel('example.xls', sheet_name='Volatilidad Histótica')
 
+def get_saldos():
+    """
+    Imprime por pantalla la composición de los saldos de la cuenta
+    """
+    headers = {"Authorization": "Bearer " + bearer_token}
+    r = requests.get(url ="https://api.invertironline.com/api/v2/estadocuenta",
+                     headers = headers)
+    text = json.loads(r.text)
+    data = text["cuentas"][0]
+    efectivo, titulos, total = int(data["disponible"]),int(data["titulosValorizados"]),int(data["total"])
+    print("------------ COMITENTE Nª {} ------------".format(data["numero"]))
+    print(" ( {}% )   Titulos Valorizados: ${}".format(round((titulos/total)*100,2),titulos))
+    print(" ( {}% )              Efectivo: ${}".format(round((efectivo/total)*100,2),efectivo))
+    print("                           Total: ${}".format(total))
+    print("--------------------------------------------")
+
 
 
 #bearer_token, refresh_token = log_in()
-
+#print(bearer_token)
+#print(refresh_token)
+#bearer_token, refresh_token = refresh(refresh_token)
+#print(bearer_token)
+#print(refresh_token)
 #opciones, opex = get_options(bearer_token)
 #print(opciones)
 #print(opex)
+#get_saldos()
 
 #get_ggal_adr()
 #print("BEARER TOKEN: ",bearer_token)
