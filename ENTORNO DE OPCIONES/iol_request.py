@@ -3,6 +3,7 @@ import json
 from datetime import datetime,timedelta
 import pandas as pd
 
+
 def log_in():
     """
     Establece conexión con la API-REST de InvertirOnline
@@ -48,7 +49,6 @@ def get_options(bearer_token):
                                 headers = headers)
 
     opciones_GGAL = json.loads(r2.text)
-    print(opciones_GGAL)
 
     opc = []
 
@@ -60,13 +60,13 @@ def get_options(bearer_token):
 
     return opc, vencimiento
 
-def get_ggal(bearer_token):
+def get_ggal(bearer_token,instrumento="GGAL"):
     """
     Obtenemos precios de GGAL
     """
     headers = {"Authorization": "Bearer " + bearer_token}
 
-    r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Cotizacion",
+    r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/"+instrumento+"/Cotizacion",
                       headers= headers)
 
     try:
@@ -94,6 +94,27 @@ def get_opex(string):
     remains = (opex - today).days
     return remains
 
+def get_puntas(instrumento,bearer_token,all= False):
+    """
+    Obtenemos puntas del instrumento pasado como input
+    all == False --> Devuelve el primer BID y primer ASK
+    all == True --> Devuelve todas las puntas
+    """
+
+    headers = {"Authorization": "Bearer " + bearer_token}
+
+    r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/"+instrumento+"/Cotizacion",
+                      headers=headers)
+
+    inst = json.loads(r3.text)
+
+    if all:
+        return [[int(i["cantidadCompra"]), float(i["precioCompra"]), float(i["precioVenta"]),
+                 int(i["cantidadVenta"])] for i in inst["puntas"]]
+    else:
+        return [int(inst["puntas"][0]["cantidadCompra"]), float(inst["puntas"][0]["precioCompra"]), float(
+            inst["puntas"][0]["precioVenta"]), int(inst["puntas"][0]["cantidadVenta"])]
+
 def get_volatilidad_historica(bearer_token,media=58):
     """
     Obtenemos precios de GGAL
@@ -103,8 +124,6 @@ def get_volatilidad_historica(bearer_token,media=58):
     hasta = datetime.today()
     desde = hasta - timedelta(days=media)
 
-    print(desde,hasta)
-
     r3 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Cotizacion/seriehistorica/"+
                           desde.strftime("%Y-%m-%d")+"/"+hasta.strftime("%Y-%m-%d")+"/ajustada",
                       headers=headers)
@@ -112,13 +131,10 @@ def get_volatilidad_historica(bearer_token,media=58):
     df = pd.DataFrame(columns=["Día","Minimo","Máximo","Cierre"])
     df.set_index("Día",inplace=True)
 
-    print(r3.text)
-
 
     for i in json.loads(r3.text):
         df.loc[i["fechaHora"][:10]] = [i["minimo"],i["maximo"],i["ultimoPrecio"]]
 
-    print(df)
     df.to_excel('example.xls', sheet_name='Volatilidad Histótica')
 
 def get_saldos():
@@ -138,7 +154,6 @@ def get_saldos():
     print("--------------------------------------------")
 
 
-
 #bearer_token, refresh_token = log_in()
 #print(bearer_token)
 #print(refresh_token)
@@ -149,6 +164,9 @@ def get_saldos():
 #print(opciones)
 #print(opex)
 #get_saldos()
+#print(get_ggal(bearer_token))
+#print(get_puntas("GGAL",bearer_token,all=True))
+#print(get_spot_Rfx20(bearer_token))
 
 #get_ggal_adr()
 #print("BEARER TOKEN: ",bearer_token)

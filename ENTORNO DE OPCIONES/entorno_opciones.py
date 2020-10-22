@@ -428,14 +428,13 @@ def actualizar():
             botons_and_colors(a.ticker, y2, a.side, a.estado)
             y2 += 16
 
-    print("DF ACTUALIZAR")
-    print(df)
-    print("ACCIONES",mi_cartera.acciones)
-    print("OPCIONES",mi_cartera.opciones)
+    #print("DF ACTUALIZAR")
+    #print(df)
+    #print("ACCIONES",mi_cartera.acciones)
+    #print("OPCIONES",mi_cartera.opciones)
 
-    print(mi_cartera.teorico)
-    print(mi_cartera.suma)
-
+    #print(mi_cartera.teorico)
+    #print(mi_cartera.suma)
 
 
 
@@ -446,14 +445,14 @@ def actualizar():
 
     mi_cartera.actualizar()
 
-    text3["text"] = "A COMPRAR : {}" \
-                    "EFECTIVO: ${} \n\n" \
-                    "OPCIONES: ${} \n\n" \
-                    "ACCIONES: {} \n\n" \
-                    "TOTAL: {} \n\n" \
-                    "DÍAS DESDE EL INICIO: {} \n\n" \
-                    "CONTEXTO \n{}".format\
-        (cant_operar.get(),mi_cartera.efectivo,mi_cartera.opciones,round(mi_cartera.acciones*subyascente.price,2),mi_cartera.total,mi_contexto.vto,mi_contexto)
+    #text3["text"] = "A COMPRAR : {}" \
+    #                "EFECTIVO: ${} \n\n" \
+    #                "OPCIONES: ${} \n\n" \
+    #                "ACCIONES: {} \n\n" \
+    #                "TOTAL: {} \n\n" \
+    #                "DÍAS DESDE EL INICIO: {} \n\n" \
+    #                "CONTEXTO \n{}".format\
+    #    (cant_operar.get(),mi_cartera.efectivo,mi_cartera.opciones,round(mi_cartera.acciones*subyascente.price,2),mi_cartera.total,mi_contexto.vto,mi_contexto)
 
 
     t2 = time.time()
@@ -516,7 +515,9 @@ def actualizar_texto(out=False):
     if out:
         text1.delete("1.0", "end")
         text2.delete("1.0", "end")
-        text4.delete("1.0", "end")
+        if mi_contexto.environment == 2:
+            text4.delete("1.0", "end")
+        text6.delete("1.0","end")
     else:
         if mi_contexto.environment == 1:
             text1.insert(tk.INSERT, df.iloc[[x for x in range(1, len(df) - 1, 2)]].to_string())  # Calls
@@ -527,7 +528,16 @@ def actualizar_texto(out=False):
             text2.insert(tk.INSERT,
                          df.iloc[[x for x in range(1, len(df)) if df.index[x][3] == "V"]].to_string())  # Puts
 
-        text4.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())  # GGAL
+        puntas = ""
+        try:
+            for x in hilo.puntas_ggal:
+                puntas += "  {:5}  ${:6} - ${:6}  {:5} \n".format(x[0], x[1], x[2], x[3])
+        except:
+            pass
+
+        if mi_contexto.environment == 2:
+            text4.insert(tk.INSERT, puntas )  # GGAL
+        text6.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())
 
 def guardar_datos(file):
     """
@@ -602,10 +612,14 @@ def pausa():
     Pausa el tiempo e inmoviliza el subyascente. Sólo para prácticar y pensar la estrategia.
     Maneja el checkbutton.
     """
-    if parar.get():
-        parar.set(False)
+    if mi_contexto.environment == 1:
+        if parar.get():
+            parar.set(False)
+        else:
+            parar.set(True)
     else:
-        parar.set(True)
+        pass
+
 
 def loop():
     """
@@ -654,10 +668,7 @@ def v_2():
 
     subyascente = Ggal()
     mi_cartera = Cartera(100000)
-
-    print(mi_cartera.efectivo, "EFECTIVOOOOO1")
-
-    hilo = Hilo_update("update")
+    hilo = Hilo_update("update",False)
     hilo.start()
 
     time.sleep(5)
@@ -674,9 +685,6 @@ def v_2():
         new = Opcion(float(i[2]),i[0][3],i[0],float(i[1]))
         df.loc[new.ticker] = [new.prima, 0, 0, 0, 0, 0]
         opciones.append(new)
-
-    print("DF V2")
-    print(df)
 
     cargar_datos()
 
@@ -704,7 +712,7 @@ def init_tkinter():
     """
     Creo Objetos en tkinter al iniciar el programa
     """
-    global root, text1, text2, text3, text4, text5, parar, figure, ticks_x, ticks_y,opcion,cant_operar
+    global root, text1, text2, text3, text4, text5, text6, parar, figure, ticks_x, ticks_y,opcion,cant_operar
 
     # root
     root = tk.Tk()
@@ -715,15 +723,18 @@ def init_tkinter():
 
     # Cuadros calls/puts
     text1 = tk.Text(root)
-    text1.place(x=30, height=550, width=520)
+    text1.place(x=30, height=550, width=540)
     text2 = tk.Text(root)
-    text2.place(x=600, height=550, width=520)
+    text2.place(x=600, height=550, width=540)
     text3 = tk.Label(root, text="")
     text3.place(x=1450, y=425)
-    text4 = tk.Text(root)
-    text4.place(x=1150, y=425, height=100, width=200)
+    if mi_contexto.environment == 2:
+        text4 = tk.Text(root)
+        text4.place(x=1150, y=425, height=90, width=310)
     text5 = tk.Label(root, text="Selecciona un activo!")
     text5.place(x=300, y=567)
+    text6 = tk.Text(root)
+    text6.place(x=1470, y=425, height=120, width=200)
 
     # RadioButton
 
@@ -731,7 +742,7 @@ def init_tkinter():
     cant_operar = IntVar()
     opcion.set(df.index[0])
     cant_operar.set(0)
-    Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x="1370", y="475")
+    Radiobutton(root, var=opcion, value="GGAL", command=lambda: clicked(opcion.get())).place(x=1700, y=482)
 
     # Botones
 
@@ -782,14 +793,8 @@ def main():
     environment = ask_enviroment()
     mi_contexto = Contexto(environment)
     path = "C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/ENTORNO DE OPCIONES/data/env" + str(mi_contexto.environment) + "_posicion.txt"
-
-    print("MI CONTEXTO: ",mi_contexto.environment)
-
     variables()
-
     init_tkinter()
-
-
     loop()
 
 def ask_enviroment():

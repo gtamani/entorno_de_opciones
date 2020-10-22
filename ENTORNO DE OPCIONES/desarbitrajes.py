@@ -12,7 +12,6 @@ def main(side, opciones):
     condor(muestra,side)
     butterfly(muestra,side)
 
-
 def spread(muestra):
     """
     Detecta desarbitrajes entre bases continuas para hacer un spread
@@ -38,20 +37,20 @@ def condor(muestra,side):
     ancho = 1
     while ancho < len(muestra) / 3:
         acc = [muestra[punta_izq + ancho * x] for x in range(4)]
-        if acc[1].base - acc[0].base == acc[2].base - acc[1].base == acc[3].base - acc[2].base:
+        if acc[1].base - acc[0].base == acc[2].base - acc[1].base == acc[3].base - acc[2].base and \
+                acc[0].prima + acc[3].prima < acc[1].prima - acc[2].prima:
             costo = (-acc[0].prima + acc[1].prima + acc[2].prima - acc[3].prima) * 100
-            prima = sum([x.prima for x in acc])
-            if costo > prima:
-                logging.info("DESARBITRAJE {}_CONDOR. Bases: {} {} {} {} . Neto de comisiones: {}".format(side, acc[0].base,
+            comisiones = sum([x.prima for x in acc])
+            #if costo > comisiones:
+            logging.info("DESARBITRAJE {}_CONDOR. Bases: {} {} {} {} . Neto de comisiones: {}".format(side, acc[0].base,
                                                                                                    acc[1].base,
                                                                                                    acc[2].base,
                                                                                                    acc[3].base,
-                                                                                                   round(costo - prima,2)))
+                                                                                                   round(costo,2)))
         punta_izq += 1
         if punta_izq + ancho * 3 >= len(muestra):
             ancho += 1
             punta_izq = 0
-
 
 def butterfly(muestra,side):
     """
@@ -62,12 +61,12 @@ def butterfly(muestra,side):
     ancho = 1
     while ancho < len(muestra) / 2:
         acc = [muestra[punta_izq + ancho * x] for x in range(3)]
-        if acc[1].base - acc[0].base == acc[2].base - acc[1].base:
+        if acc[1].base - acc[0].base == acc[2].base - acc[1].base and acc[0].prima + acc[2].prima < 2 * acc[1].prima:
             costo = (-acc[0].prima + 2 * acc[1].prima - acc[2].prima) * 100
-            prima = sum([x.prima for x in acc])
-            if costo > prima:
-                logging.info("DESARBITRAJE {}_BUTTERFLY. Bases: {} {} {} . Neto de comisiones: {}".format(side, acc[0].base,
-                                acc[1].base,acc[2].base,round(costo - prima,2)))
+            comisiones = sum([x.prima for x in acc])
+            #if costo > comisiones:
+            logging.info("DESARBITRAJE {}_BUTTERFLY. Bases: {} {} {} . Neto de comisiones: {}".format(side, acc[0].base,
+                                acc[1].base,acc[2].base,round(costo,2)))
         punta_izq += 1
         if punta_izq + ancho * 2 >= len(muestra):
             ancho += 1

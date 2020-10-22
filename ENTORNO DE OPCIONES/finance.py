@@ -4,7 +4,6 @@ from scipy.stats import norm
 def N(d):
     return norm.cdf(d,0,1)
 
-
 def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.3,interes=0.3):
     """
     Cálculo teórico de valuación de opciones financieras.
@@ -26,10 +25,6 @@ def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.
         return round(price,2)#,d1,d2,vega
     except:
         return "Error"
-
-
-
-
 
 def y_graph(side,base,prima,cant,x,lote=100):
     """
@@ -100,7 +95,6 @@ def graph(details,var_x,opex=0):
 
 def graph2():
     pass
-
 
 def tna_a_tea(tna,capitalize):
     """
