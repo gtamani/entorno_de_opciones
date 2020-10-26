@@ -55,7 +55,7 @@ from tkinter import *
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
-from hilo_request import Hilo_update
+from hilo_request import Hilo_update, Ggal_futuro
 import finance
 import os
 import desarbitrajes
@@ -94,7 +94,7 @@ class Contexto:
         return str(list(self.contextos[self.contexto].keys())[0]).upper()
 
     def sortear_contexto(self):
-        print(random.randint(1, 9),list(self.contextos[self.contexto].values())[0])
+        #print(random.randint(1, 9),list(self.contextos[self.contexto].values())[0])
         self.contexto = random.randint(1, 9)
         self.possibilities = list(self.contextos[self.contexto].values())[0]
         subyascente.price += random.choice(self.possibilities)
@@ -105,6 +105,7 @@ class Opcion:
         self.base = base
         self.side = side
         self.ticker = "GGAL_" + self.side + "_" + str(self.base) + "_10"
+        self.sigma = 0
 
         if mi_contexto == 1:
             self.arbitrado = True
@@ -112,19 +113,25 @@ class Opcion:
             self.arbitrado = None
 
         if self.side == "C":
-            if subyascente.price >= self.base:
+            if subyascente.price >= self.base + 1.5:
                 self.prima = subyascente.price - self.base
-                self.estado = True
-            else:
+                self.estado = "itm"
+            elif subyascente.price <= self.base - 1.5:
                 self.prima = 0.1
-                self.estado = False
+                self.estado = "otm"
+            else:
+                self.prima = subyascente.price - self.base
+                self.estado = "atm"
         else:
-            if subyascente.price <= self.base:
+            if subyascente.price <= self.base - 1.5:
                 self.prima = self.base - subyascente.price
-                self.estado = True
-            else:
+                self.estado = "itm"
+            elif subyascente.price >= self.base + 1.5:
                 self.prima = 0.1
-                self.estado = False
+                self.estado = "otm"
+            else:
+                self.prima = self.base - subyascente.price
+                self.estado = "atm"
 
         if mi_contexto != 1:
             self.ticker = ticker
@@ -140,15 +147,19 @@ class Opcion:
 
     def actualizar_prima(self):
         if self.side == "C":
-            if subyascente.price >= self.base:
-                self.estado = True
+            if subyascente.price >= self.base + 1.5:
+                self.estado = "itm"
+            elif subyascente.price <= self.base - 1.5:
+                self.estado = "otm"
             else:
-                self.estado = False
+                self.estado = "atm"
         else:
-            if subyascente.price <= self.base:
-                self.estado = True
+            if subyascente.price <= self.base - 1.5:
+                self.estado = "itm"
+            elif subyascente.price >= self.base + 1.5:
+                self.estado = "otm"
             else:
-                self.estado = False
+                self.estado = "atm"
 
         if self.arbitrado:
             if self.side == "C":
@@ -264,7 +275,7 @@ class Changuito:
         neto = bruto - comision
 
         self.content.loc[activo] = [cantidad,precio,bruto,comision,neto]
-        print(self.content)
+        #print(self.content)
         pass
 
     def remove(self):
@@ -288,8 +299,6 @@ def simular(activo,cant_comprada):
     """
     global opcion
 
-    print(cant_comprada,"AAAAAAAAAAAAAAAAAAAAAAA")
-
     if cant_comprada == 1:
         print("COMPRANDO", opcion.get())
     else:
@@ -303,8 +312,6 @@ def simular(activo,cant_comprada):
         df.loc[activo, "Cantidad"] += cant_comprada  # Nueva Cantidad
         total = (df.loc[activo, "Cantidad"])
 
-        print(cant_comprada,df.loc[activo, "Cantidad"])
-
         if cant_comprada > 0 and df.loc[activo, "Cantidad"] > 0 or cant_comprada < 0 and df.loc[activo, "Cantidad"] <= 0:
             try:
                 df.loc[activo, "PP"] = round((df.loc[activo, "PP"] * (df.loc[activo, "Cantidad"] - cant_comprada) + (df.loc[activo, "Prima"] *
@@ -312,7 +319,6 @@ def simular(activo,cant_comprada):
                 if df.loc[activo, "Cantidad"] < 0:
                     df.loc[activo, "PP"] *= -1
 
-                print("ENTRAAAAAA")
             except ZeroDivisionError:
                 df.loc[activo, "PP"] = 0
                 df.loc[activo, "Rendimiento"] = 0
@@ -342,12 +348,13 @@ def actualizar():
     También actualiza el gráfico
     """
 
-    global figure,parar
+    global figure,parar,paridad,itm_sigma
 
     plt.close()
 
     t1 = time.time()
     y1, y2 = 30, 30
+
 
     actualizar_texto(True)
 
@@ -363,7 +370,7 @@ def actualizar():
     else:
         subyascente.price = hilo.ggal
 
-    print("MI CARTERA ACCIONES",mi_cartera.acciones)
+    #print("MI CARTERA ACCIONES",mi_cartera.acciones)
 
     df.loc["GGAL", "Cantidad"] = mi_cartera.acciones
     df.loc["GGAL", "Prima"] = subyascente.price
@@ -378,16 +385,21 @@ def actualizar():
 
     medio = min([(abs(x[z]-subyascente.price),z) for z in range(len(x))])[1]
 
-    figure = plt.figure(figsize=(5, 4), dpi=100)
-    ax1 = figure.add_subplot(111)
+    figure = plt.figure(figsize=(8, 4), dpi=100)
+    ax1 = figure.add_subplot(211)
+    ax7 = figure.add_subplot(212)
+
+    ax7.xaxis.set_major_locator(plt.MaxNLocator(6))
+
     ax1.plot(x[medio-ancho:medio+ancho], mi_cartera.suma[medio-ancho:medio+ancho])
+    ax7.plot(hilo.coord[0],hilo.coord[1])
 
     if any(mi_cartera.suma) is False:
         rango = [0,100]
     else:
         rango = mi_cartera.suma[medio-ancho:medio+ancho]
 
-    ax2 = figure.add_subplot(111)
+    ax2 = figure.add_subplot(211)
     try:
         ax2.plot((subyascente.price, subyascente.price), (max(rango), min(rango)))
     except:
@@ -396,6 +408,8 @@ def actualizar():
     #ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
     #ax4 = figure.add_subplot(111)
     #ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho])
+
+    #ax8 = figure.add_subplot(212).plot(hilo.coord[0],[itm_sigma/100 for x in hilo.coord[0]])
 
     ax1.set_xlabel("Precio GGAL")
     ax1.set_ylabel("($) Ganancia")
@@ -406,7 +420,6 @@ def actualizar():
     #SUBPLOT = 1 RENGLON, 1 COLUMNA, POSICIÓN 1
     chart = FigureCanvasTkAgg(figure, root)
     chart.get_tk_widget().place(x=1150)
-
 
     actualizar_texto()
 
@@ -428,6 +441,22 @@ def actualizar():
             botons_and_colors(a.ticker, y2, a.side, a.estado)
             y2 += 16
 
+        if a.estado == "atm":
+            print("ENCONTRE ",a.prima)
+            if a.side == "C":
+                itm_call = a.prima
+                itm_sigma = a.sigma
+            else:
+                itm_put = a.prima
+
+
+    try:
+        paridad = itm_call / itm_put
+    except:
+        paridad = 1
+
+
+
     #print("DF ACTUALIZAR")
     #print(df)
     #print("ACCIONES",mi_cartera.acciones)
@@ -435,9 +464,6 @@ def actualizar():
 
     #print(mi_cartera.teorico)
     #print(mi_cartera.suma)
-
-
-
 
     os.system("cls")
     desarbitrajes.main("C",opciones)
@@ -454,18 +480,27 @@ def actualizar():
     #                "CONTEXTO \n{}".format\
     #    (cant_operar.get(),mi_cartera.efectivo,mi_cartera.opciones,round(mi_cartera.acciones*subyascente.price,2),mi_cartera.total,mi_contexto.vto,mi_contexto)
 
+    text3["text"] = "Volatilidad histórica\n" \
+                    "40 ruedas: {:.2f}% ".format(hilo.sigma_h*100)
 
-    t2 = time.time()
-    print("ACTUALIZO",(t2-t1))
+    #t2 = time.time()
+    #print("ACTUALIZO",(t2-t1))
 
-    plt.grid()
+    ax1.grid()
+    ax7.grid()
 
 def botons_and_colors(ticker,y,side,itm):
     """
     Maneja los Botones y los colores
     """
     renglon = ((y - 30) / 16) -1
-    color = "#76D7C4" if itm else "#F1948A"
+    if itm == "itm":
+        color = "#76D7C4"
+    elif itm == "atm":
+        color = "#FFE4B5"
+    else:
+        color = "#F1948A"
+
     inicio, fin, etiqueta =  str(renglon+4), str(renglon+5),"et" + str(renglon) + side
 
     if side == "C":
@@ -494,8 +529,13 @@ def actualizar_df(a,b = 0):
     else:
         df.loc[a.ticker, "Prima"] = b
 
-    df.loc[a.ticker, "B&Sch"] = finance.calculo_blackScholes(subyascente.price, a.base, days_to_opex / 360, a.side)
-    df.loc[a.ticker, "Tenencia"] = df.loc[a.ticker, "Prima"] * df.loc[a.ticker, "Cantidad"] * 100
+    if a.base != 0:
+        try:
+            a.sigma = round(float(finance.vi(subyascente.price, a.base, days_to_opex / 360,a.prima ,a.side)),2)
+            df.loc[a.ticker, "B&Sch"] = a.sigma
+        except:
+            df.loc[a.ticker,"B&Sch"] = 1
+        df.loc[a.ticker, "Tenencia"] = df.loc[a.ticker, "Prima"] * df.loc[a.ticker, "Cantidad"] * 100
 
     if df.loc[a.ticker, "Cantidad"] != 0:
         try:
@@ -512,6 +552,8 @@ def actualizar_texto(out=False):
     """
     Actualiza el gráfico ante cambios en los datos
     """
+    print("-------------------- entra la funcion"+str(paridad))
+
     if out:
         text1.delete("1.0", "end")
         text2.delete("1.0", "end")
@@ -537,7 +579,7 @@ def actualizar_texto(out=False):
 
         if mi_contexto.environment == 2:
             text4.insert(tk.INSERT, puntas )  # GGAL
-        text6.insert(tk.INSERT, "GGAL: \n" + df.loc["GGAL"].to_string())
+        text6.insert(tk.INSERT, "GGAL: \n" + "FUTURO GGAL: " + str(futuro.price) + "\n" + "PARIDAD CALL/PUT: " + str(round(paridad,2)) + "\n\n" + df.loc["GGAL"].to_string())
 
 def guardar_datos(file):
     """
@@ -575,9 +617,9 @@ def cargar_datos():
         except:
             print("No hay data para cargar.")
 
-    print("DF CARGAR DATOS")
-    print(df)
-    print(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
+    #print("DF CARGAR DATOS")
+    #print(df)
+    #print(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad"]])
 
     mi_cartera.actualizar_tenencia(df.loc[df["Cantidad"] != 0, ["Prima", "Cantidad","PP"]])
 
@@ -599,12 +641,7 @@ def clicked(opcion,cant = 0):
     Informa por consola la compra/venta a realizar
     """
     ant = cant_operar.get()
-    print(ant)
     cant_operar.set(ant+cant)
-    print
-
-
-    print("CLICKED")
     text5["text"] = "Seleccionado -->    {} un. de {}!".format(cant_operar.get(), opcion)
 
 def pausa():
@@ -620,7 +657,6 @@ def pausa():
     else:
         pass
 
-
 def loop():
     """
     Loop principal
@@ -629,11 +665,11 @@ def loop():
     lap = 0
     t1 = time.time()
     while 1:
-        print("LAP",lap)
+        #print("LAP",lap)
         if lap % 4 == 0:
             actualizar()
             t2 = time.time()
-            print(round((t2-t1),2)," seg. en dar una vuelta.")
+            #print(round((t2-t1),2)," seg. en dar una vuelta.")
             t1 = time.time()
         time.sleep(0.5)
         root.update()
@@ -664,12 +700,16 @@ def v_2():
     """
     Variables para entornos que necesitan autenticación con la API
     """
-    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo, df
+    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo, futuro, df
 
     subyascente = Ggal()
     mi_cartera = Cartera(100000)
+
+    #Arranco Hilos
     hilo = Hilo_update("update",False)
+    futuro = Ggal_futuro()
     hilo.start()
+    futuro.start()
 
     time.sleep(5)
     input("Presione Enter cuando se actualice ")
@@ -692,7 +732,7 @@ def variables():
     """
     Seteo variables generales
     """
-    global x,ticks_x,ticks_y,df,opciones,ancho,mostrar_ancho,comision_acciones,mi_changuito
+    global x,ticks_x,ticks_y,df,opciones,ancho,mostrar_ancho,comision_acciones,mi_changuito, itm_call, itm_put, itm_sigma, paridad
 
     df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
     df.set_index("Serie", inplace=True)
@@ -702,6 +742,7 @@ def variables():
     mi_changuito = Changuito()
     opciones = list()
     ancho, mostrar_ancho = 20,1.8
+    itm_call, itm_put, itm_sigma, paridad = 1, 1, 1, 1
 
     if mi_contexto.environment == 1:
         v_1()
@@ -716,7 +757,7 @@ def init_tkinter():
 
     # root
     root = tk.Tk()
-    root.geometry("1750x600")
+    root.geometry("2200x600")
     root.title("Entorno de opciones GGAL")
     root.pack_propagate(False)
     #root.resizable(0, 0)  # No puede agrandarse, ni achicarse la ventana
@@ -727,14 +768,14 @@ def init_tkinter():
     text2 = tk.Text(root)
     text2.place(x=600, height=550, width=540)
     text3 = tk.Label(root, text="")
-    text3.place(x=1450, y=425)
+    text3.place(x=1700, y=425)
     if mi_contexto.environment == 2:
         text4 = tk.Text(root)
-        text4.place(x=1150, y=425, height=90, width=310)
+        text4.place(x=1150, y=425, height=90, width=310) #
     text5 = tk.Label(root, text="Selecciona un activo!")
     text5.place(x=300, y=567)
     text6 = tk.Text(root)
-    text6.place(x=1470, y=425, height=120, width=200)
+    text6.place(x=1470, y=425, height=150, width=200) #
 
     # RadioButton
 
@@ -755,9 +796,9 @@ def init_tkinter():
     button4 = tk.Button(root, text = "Guardar",command = lambda: guardar_datos(path))
     button4.place(x="1200", y="550")
     button5 = tk.Button(root, text="{:3}".format("+"),command= lambda: ancho_tabla(-5))
-    button5.place(x="1670", y="100")
+    button5.place(x="1770", y="500")
     button6 = tk.Button(root, text=" {:3}".format("-"), command=lambda: ancho_tabla(+5))
-    button6.place(x="1670", y="130")
+    button6.place(x="1770", y="530")
     button7 = tk.Button(root,text="Añadir al changuito!",command=lambda: mi_changuito.add(opcion,1))
     button7.place(x="700",y="567")
 
@@ -772,17 +813,23 @@ def init_tkinter():
 
     # Grafico
     figure = plt.figure(figsize=(5, 4), dpi=100)
-    ax1 = figure.add_subplot(111)
+
+    ax1 = figure.add_subplot(211)
+    ax7 = figure.add_subplot(212)
+
     ax1.plot(x, mi_cartera.suma)
+    ax7.plot(hilo.coord[0],hilo.coord[1])
+
     ax1.set_xlabel("Precio GGAL")
     ax1.set_xlabel("($) Ganancia")
+
     ax1.xaxis.set_major_formatter(ticks_x)
     ax1.yaxis.set_major_formatter(ticks_y)
 
     chart = FigureCanvasTkAgg(figure, root)
     chart.get_tk_widget().place(x=1150)
 
-    figure.add_subplot(111).plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
+
 
 def main():
     """
@@ -802,6 +849,7 @@ def ask_enviroment():
     Pregunta el entorno a abrir para setear la clase Contexto
     """
     print("Bienvenido!")
+    print()
     print("Seleccione el entorno: ")
     print("( 1 ) Modo Práctica")
     print("( 2 ) Práctica - Precios Reales")

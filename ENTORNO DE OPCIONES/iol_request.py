@@ -2,6 +2,10 @@ import requests
 import json
 from datetime import datetime,timedelta
 import pandas as pd
+import math
+import statistics
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def log_in():
@@ -109,8 +113,10 @@ def get_puntas(instrumento,bearer_token,all= False):
     inst = json.loads(r3.text)
 
     if all:
-        return [[int(i["cantidadCompra"]), float(i["precioCompra"]), float(i["precioVenta"]),
+        asd = [[int(i["cantidadCompra"]), float(i["precioCompra"]), float(i["precioVenta"]),
                  int(i["cantidadVenta"])] for i in inst["puntas"]]
+        print(asd)
+        return asd
     else:
         return [int(inst["puntas"][0]["cantidadCompra"]), float(inst["puntas"][0]["precioCompra"]), float(
             inst["puntas"][0]["precioVenta"]), int(inst["puntas"][0]["cantidadVenta"])]
@@ -128,14 +134,46 @@ def get_volatilidad_historica(bearer_token,media=58):
                           desde.strftime("%Y-%m-%d")+"/"+hasta.strftime("%Y-%m-%d")+"/ajustada",
                       headers=headers)
 
-    df = pd.DataFrame(columns=["Día","Minimo","Máximo","Cierre"])
+    df = pd.DataFrame(columns=["Día","Minimo","Máximo","Cierre","Variacion","St Desv","Volatilidad"])
     df.set_index("Día",inplace=True)
+    iterable = json.loads(r3.text)
+
+    cierre_ant = 1
+    fecha_ant = 0
+    fecha_40 = iterable[0]["fechaHora"][:10]
+    muestra = list()
+    for i in range(len(iterable)):
+        a = iterable[i]
+        df.loc[a["fechaHora"][:10]] = [a["minimo"],a["maximo"],a["ultimoPrecio"],np.nan,np.nan,np.nan]
+        #df.loc[i["fechaHora"][:10],"Variacion"] = math.log(i["ultimoPrecio"]/cierre_ant)
+        #cierre_ant = i["ultimoPrecio"]
+        #print(len(muestra),muestra)
+
+        variacion = (math.log(a["ultimoPrecio"] / cierre_ant)) * -1
+        df.loc[fecha_ant,"Variacion"] = variacion
+
+        if len(muestra) == 40:
+            muestra.pop(0)
+            muestra.append(variacion)
+            desvio = statistics.stdev(muestra)
+            df.loc[fecha_40, "St Desv"] = desvio
+            df.loc[fecha_40, "Volatilidad"] = desvio * math.sqrt(252)
+            fecha_40 = iterable[i-40]["fechaHora"][:10]
+        else:
+            muestra.append(variacion)
+            df.loc[fecha_40, "St Desv"] = None
+            df.loc[fecha_40, "Volatilidad"] = None
 
 
-    for i in json.loads(r3.text):
-        df.loc[i["fechaHora"][:10]] = [i["minimo"],i["maximo"],i["ultimoPrecio"]]
+        fecha_ant = a["fechaHora"][:10]
+        cierre_ant = a["ultimoPrecio"]
+
 
     df.to_excel('example.xls', sheet_name='Volatilidad Histótica')
+    #plt.plot(list(df.index)[::-1],list(df.loc[:,"Volatilidad"])[::-1])
+    #plt.show()
+    return (list(df.index)[::-1], list(df.loc[:, "Volatilidad"])[::-1]),df.iloc[0,-1]
+
 
 def get_saldos():
     """
@@ -153,6 +191,26 @@ def get_saldos():
     print("                           Total: ${}".format(total))
     print("--------------------------------------------")
 
+def post_order(ticker,cantidad,precio):
+
+    url = "https://api.invertironline.com/api/v2/operar/Comprar"
+
+    print(datetime(2020,10,24).strftime("%Y-%m-%d"))
+
+    data = {"mercado": "bCBA",
+            "simbolo": ticker,
+            "cantidad": cantidad,
+            "precio": precio,
+            "plazo": "t1",
+            "validez": datetime(2020,10,24).strftime("%Y-%m-%d")}
+
+    headers = {"Authorization": "Bearer " + bearer_token}
+
+    r = requests.post(url=url, data=data, headers=headers)
+    access = json.loads(r.text)
+    print(access)
+
+
 
 #bearer_token, refresh_token = log_in()
 #print(bearer_token)
@@ -167,11 +225,8 @@ def get_saldos():
 #print(get_ggal(bearer_token))
 #print(get_puntas("GGAL",bearer_token,all=True))
 #print(get_spot_Rfx20(bearer_token))
-
+#post_order("GFGC12481D",200,9.502)
 #get_ggal_adr()
 #print("BEARER TOKEN: ",bearer_token)
 #print(get_volatilidad_historica(bearer_token))
-
-
-
-
+#get_volatilidad_historica(bearer_token,media=365)

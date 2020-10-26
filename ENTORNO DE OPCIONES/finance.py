@@ -1,10 +1,14 @@
 import numpy as np
 from scipy.stats import norm
+from math import sqrt
 
 def N(d):
+    """
+    Probabilidad de que que la accion se posicione por debajo de "d" conforme a una distribución normal
+    """
     return norm.cdf(d,0,1)
 
-def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.3,interes=0.3):
+def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.3,interes=0.4):
     """
     Cálculo teórico de valuación de opciones financieras.
     Parte del DataFrame.
@@ -13,18 +17,50 @@ def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.
 
     d1 = (np.log(spot/strike) + (interes + sigma**2/2)*tiempo_al_vencimiento)/(sigma*np.sqrt(tiempo_al_vencimiento))
     d2 = d1 - sigma*np.sqrt(tiempo_al_vencimiento)
-    vega = spot * N(d1) * np.sqrt(tiempo_al_vencimiento)
+
+    delta_c = N(d1)
+    vega = spot * delta_c * np.sqrt(tiempo_al_vencimiento)
 
 
     try:
         if type == "C":
-            price = spot * N(d1) - strike*np.exp(-interes*tiempo_al_vencimiento) * N(d2)
+            price = spot * delta_c - strike*np.exp(-interes*tiempo_al_vencimiento) * N(d2)
+
         elif type == "V":
             price = strike * np.exp(-interes*tiempo_al_vencimiento) * N(-d2) - spot*N(-d1)
+
 
         return round(price,2)#,d1,d2,vega
     except:
         return "Error"
+
+def vega(spot,strike,tiempo_al_vencimiento,interes,sigma):
+    spot = float(spot)
+    d1 = (np.log(spot/strike) + (interes + 0.5 * sigma**2)*tiempo_al_vencimiento)/(sigma*np.sqrt(tiempo_al_vencimiento))
+    return spot * N(d1) * sqrt(tiempo_al_vencimiento)
+
+def vi(spot,strike,tiempo_al_vencimiento,prima,type = "C",interes=0.35):
+    """
+    ARREGLAR
+    """
+    sigma_est = 0.5
+    for i in range(100):
+        sigma_est -= (calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type,sigma_est,interes)-prima) / vega(spot,strike,tiempo_al_vencimiento,interes,sigma_est)
+    print(strike,round(sigma_est * 100,2))
+
+
+    return round(sigma_est * 100,2)
+
+#spot = 119
+#print(vi(spot,124.81,56/365,9.5,"C"))
+#print(vi(spot,127.81,56/365,8.3,"C"))
+#print(vi(spot,130.81,56/365,7.25,"C"))
+#print(vi(spot,133.81,56/365,6.45,"C"))
+
+
+def griegas(cotizacion,type):
+    pass
+
 
 def y_graph(side,base,prima,cant,x,lote=100):
     """
@@ -58,27 +94,24 @@ def graph(details,var_x,opex=0):
     #print("SUMA: ",suma)
     #print("NEW: ",new)
 
-
     al_vto, teorico = [0 for x in var_x],[0 for x in var_x]
-
-    print("DETAILSSSSSSSSSS\n",details,"VAR_X",var_x)
 
     for i in details:
         #print(i[0], i[1], i[2], i[3], i[4])
 
-        print(i)
+        #print(i)
         if len(i) == 3:
-            print("ACCION")
+            #print("ACCION")
             curva_vto = [(x-i[1]) * i[2] for x in var_x]
             curva_teorico = [(x - i[1]) * i[2] for x in var_x]
         else:
-            print("OPCION")
-            print(var_x[1],var_x[2],var_x[3],i[1],opex,i[0])
+            #print("OPCION")
+            #print(var_x[1],var_x[2],var_x[3],i[1],opex,i[0])
             curva_vto = y_graph(i[0],float(i[1]),i[2],i[3],var_x)
             curva_teorico = [(calculo_blackScholes(var_x[z],int(i[1]),opex,i[0]) - i[4]) * i[3] * 100 if i[3] >= 0 else
                              (i[4] + calculo_blackScholes(var_x[z],int(i[1]),opex,i[0])) * i[3] * 100 for z in range(len(al_vto))]
-            print("teorico,curva",curva_teorico)
-            print()
+            #print("teorico,curva",curva_teorico)
+            #print()
 
 
         for j in range(len(curva_vto)):
@@ -86,8 +119,8 @@ def graph(details,var_x,opex=0):
             teorico[j] += curva_teorico[j]
 
 
-    print(al_vto)
-    print(teorico)
+    #print(al_vto)
+    #print(teorico)
 
 
 
