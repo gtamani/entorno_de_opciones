@@ -15,6 +15,8 @@ def calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type = "C",sigma = 0.
     """
     #Maturity = tiempo al venc/365
 
+    #print("SPOT:",spot,"\nSTRIKE: ",strike,"\OPEX: ",tiempo_al_vencimiento,"\nTYPE: ",type)
+
     d1 = (np.log(spot/strike) + (interes + sigma**2/2)*tiempo_al_vencimiento)/(sigma*np.sqrt(tiempo_al_vencimiento))
     d2 = d1 - sigma*np.sqrt(tiempo_al_vencimiento)
 
@@ -97,7 +99,7 @@ def graph(details,var_x,opex=0):
     al_vto, teorico = [0 for x in var_x],[0 for x in var_x]
 
     for i in details:
-        #print(i[0], i[1], i[2], i[3], i[4])
+        #print("DETAILS: ",i[0], i[1], i[2], i[3], i[4]) #3- tenencia
 
         #print(i)
         if len(i) == 3:
@@ -107,11 +109,26 @@ def graph(details,var_x,opex=0):
         else:
             #print("OPCION")
             #print(var_x[1],var_x[2],var_x[3],i[1],opex,i[0])
+
             curva_vto = y_graph(i[0],float(i[1]),i[2],i[3],var_x)
-            curva_teorico = [(calculo_blackScholes(var_x[z],int(i[1]),opex,i[0]) - i[4]) * i[3] * 100 if i[3] >= 0 else
-                             (i[4] + calculo_blackScholes(var_x[z],int(i[1]),opex,i[0])) * i[3] * 100 for z in range(len(al_vto))]
-            #print("teorico,curva",curva_teorico)
+            #print(115,var_x[9],opex/365,i[0])
+
+            #print(-i[2],i[2])
+            #print([calculo_blackScholes(var_x[z],i[1],opex/365,i[0]) for z in range(len(al_vto))])
+
+            #print(i[2])
+            #print(i[3])
             #print()
+            #print([i[2] - calculo_blackScholes(var_x[z], i[1], opex / 365, i[0]) for z in range(len(al_vto))])
+            #print([-i[2] + calculo_blackScholes(var_x[z], i[1], opex / 365, i[0]) for z in range(len(al_vto))])
+
+            curva_teorico = [(-i[2] + calculo_blackScholes(var_x[z], i[1], opex / 365, i[0])) * i[3] * 100 if i[3] >= 0 else
+                             (i[2] - calculo_blackScholes(var_x[z], i[1], opex / 365, i[0])) * abs(i[3]) * 100 for z in range(len(al_vto))]
+
+            #print("finish,curva", curva_vto)
+            #print("teorico,curva", curva_teorico)
+            #print("suma_finish", al_vto)
+            #print("suma_teorico", teorico)
 
 
         for j in range(len(curva_vto)):
@@ -119,8 +136,8 @@ def graph(details,var_x,opex=0):
             teorico[j] += curva_teorico[j]
 
 
-    #print(al_vto)
-    #print(teorico)
+    #print("AL VENCIMIENTO: ",al_vto)
+    #print("TEORICO: ",teorico)
 
 
 
@@ -153,3 +170,5 @@ def tna_a_tea(tna,capitalize):
 #print(vega)
 
 #print(volatilidad_implicita(34,30,1,0.0001,2.724,0.5))
+
+print([calculo_blackScholes(115,x,0.14,"C") for x in range(50,100,2)])

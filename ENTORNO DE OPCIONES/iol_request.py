@@ -174,7 +174,6 @@ def get_volatilidad_historica(bearer_token,media=58):
     #plt.show()
     return (list(df.index)[::-1], list(df.loc[:, "Volatilidad"])[::-1]),df.iloc[0,-1]
 
-
 def get_saldos():
     """
     Imprime por pantalla la composición de los saldos de la cuenta

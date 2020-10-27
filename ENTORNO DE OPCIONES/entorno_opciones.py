@@ -61,6 +61,7 @@ import os
 import desarbitrajes
 
 
+
 class Ggal:
 
     def __init__(self,price = 0):
@@ -389,10 +390,13 @@ def actualizar():
     ax1 = figure.add_subplot(211)
     ax7 = figure.add_subplot(212)
 
+    ax3 = figure.add_subplot(211)
+    ax3.plot(x, [0 for x in x], color="black", linewidth=0.5)
+
     ax7.xaxis.set_major_locator(plt.MaxNLocator(6))
 
-    ax1.plot(x[medio-ancho:medio+ancho], mi_cartera.suma[medio-ancho:medio+ancho])
-    ax7.plot(hilo.coord[0],hilo.coord[1])
+    ax1.plot(x[medio-ancho:medio+ancho], mi_cartera.suma[medio-ancho:medio+ancho],color="#A9DFBF")
+    ax7.plot(hilo.coord[0],hilo.coord[1],color = "#E74C3C")
 
     if any(mi_cartera.suma) is False:
         rango = [0,100]
@@ -404,15 +408,15 @@ def actualizar():
         ax2.plot((subyascente.price, subyascente.price), (max(rango), min(rango)))
     except:
         ax2.plot((subyascente.price, subyascente.price), (max(mi_cartera.suma), min(mi_cartera.suma)))
-    #ax3 = figure.add_subplot(111)
-    #ax3.plot(x,[0 for x in x],color = "black",linewidth= 1)
-    #ax4 = figure.add_subplot(111)
-    #ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho])
+    ax4 = figure.add_subplot(211)
+    ax4.plot(x[medio - ancho:medio + ancho], mi_cartera.teorico[medio - ancho:medio + ancho],color="#16A085")
 
     #ax8 = figure.add_subplot(212).plot(hilo.coord[0],[itm_sigma/100 for x in hilo.coord[0]])
 
     ax1.set_xlabel("Precio GGAL")
     ax1.set_ylabel("($) Ganancia")
+    ax7.set_xlabel("Time")
+    ax7.set_ylabel("(%) Volatilidad GGAL")
     ax1.xaxis.set_major_formatter(ticks_x)
     ax1.yaxis.set_major_formatter(ticks_y)
     plt.xlim(subyascente.price-(ancho*mostrar_ancho),subyascente.price+(ancho*mostrar_ancho))
@@ -532,9 +536,13 @@ def actualizar_df(a,b = 0):
     if a.base != 0:
         try:
             a.sigma = round(float(finance.vi(subyascente.price, a.base, days_to_opex / 360,a.prima ,a.side)),2)
-            df.loc[a.ticker, "B&Sch"] = a.sigma
+            if a.prima != 0:
+                df.loc[a.ticker, "B&Sch"] = a.sigma
+            else:
+                df.loc[a.ticker, "B&Sch"] = np.nan
+
         except:
-            df.loc[a.ticker,"B&Sch"] = 1
+            df.loc[a.ticker,"B&Sch"] = np.nan
         df.loc[a.ticker, "Tenencia"] = df.loc[a.ticker, "Prima"] * df.loc[a.ticker, "Cantidad"] * 100
 
     if df.loc[a.ticker, "Cantidad"] != 0:
