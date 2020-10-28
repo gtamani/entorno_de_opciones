@@ -233,8 +233,8 @@ class Cartera:
                 total.append(["GGAL",self.tenencia.loc["GGAL","Prima"],self.tenencia.loc["GGAL","Cantidad"]])
             else:
                 data = self.tenencia.index[i].split("_")#+self.tenencia[-1,"PP"]
-                print(self.tenencia)
-                print("DATAAAAAAAAAAAAAAAAAAAAAAAAAAA:",data)
+                #print(self.tenencia)
+                #print("DATAAAAAAAAAAAAAAAAAAAAAAAAAAA:",data)
 
                 if mi_contexto.environment == 1:
                     data = [data[1], data[2]]
@@ -446,7 +446,7 @@ def actualizar():
             y2 += 16
 
         if a.estado == "atm":
-            print("ENCONTRE ",a.prima)
+            #print("ENCONTRE ",a.prima)
             if a.side == "C":
                 itm_call = a.prima
                 itm_sigma = a.sigma
@@ -587,7 +587,7 @@ def actualizar_texto(out=False):
 
         if mi_contexto.environment == 2:
             text4.insert(tk.INSERT, puntas )  # GGAL
-        text6.insert(tk.INSERT, "GGAL: \n" + "FUTURO GGAL: " + str(futuro.price) + "\n" + "PARIDAD CALL/PUT: " + str(round(paridad,2)) + "\n\n" + df.loc["GGAL"].to_string())
+        text6.insert(tk.INSERT, "GGAL: \n" + "FUTURO GGAL: " + str(futuro.price) + "\nADR:  ...  " + "\nPARIDAD CALL/PUT: " + str(round(paridad,2)) + "\n\n" + df.loc["GGAL"].to_string())
 
 def guardar_datos(file):
     """
@@ -618,7 +618,7 @@ def cargar_datos():
             for i in file.readlines():
                 i = i.split(" ")
                 i.remove("\n")
-                print("CANT: ",int(i[5]),i)
+                #print("CANT: ",int(i[5]),i)
 
                 df.loc[i[0]] = [round(float(i[1]), 2), round(float(i[2]), 2), round(float(i[3]), 2),
                                 round(float(i[4]), 2), int(i[5]), round(float(i[6]), 2)]
@@ -708,19 +708,23 @@ def v_2():
     """
     Variables para entornos que necesitan autenticación con la API
     """
-    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo, futuro, df
+    global opciones, bearer_token, refresh_roken, mi_cartera, subyascente, days_to_opex, hilo, futuro, adr, df
 
     subyascente = Ggal()
     mi_cartera = Cartera(100000)
 
+
     #Arranco Hilos
     hilo = Hilo_update("update",False)
     futuro = Ggal_futuro()
+
     hilo.start()
     futuro.start()
 
+
     time.sleep(5)
     input("Presione Enter cuando se actualice ")
+
 
     opc, vto = hilo.opciones, hilo.vencimiento_opc
     days_to_opex = hilo.days_to_opex

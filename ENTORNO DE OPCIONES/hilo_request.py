@@ -3,7 +3,8 @@ import iol_request
 import logging
 import time
 import pyRofex
-
+from bs4 import BeautifulSoup as b
+import requests
 
 class Hilo_update(threading.Thread):
     def __init__(self,name,pause):
@@ -13,7 +14,6 @@ class Hilo_update(threading.Thread):
         self.days_to_opex = 0
         self.pause = False
         self.first = True
-
 
     def __str__(self):
         return "Hilo que obtiene datos constantemente."
@@ -31,8 +31,9 @@ class Hilo_update(threading.Thread):
         lap = 0
         init_bearer = time.time()
 
+
         while self.pause is False:
-            print(self.coord)
+            #print(self.coord)
             try:
                 t1 = time.time()
                 # Cargo Datos
@@ -53,11 +54,12 @@ class Hilo_update(threading.Thread):
                 else:
                     logging.info("Tiempo desde bearer token: " + str(t2 - init_bearer))
 
-                print()
+                #print()
                 logging.info("GGAL: "+str(self.ggal))
                 logging.info("OPCIONES ACTUALIZADAS! ")
                 logging.info("Update en: " + str(t2 - t1))
-                print()
+                #print()
+
             except:
                 print("\n"*10)
                 print("ERRORRRRRRR")
@@ -102,5 +104,25 @@ class Ggal_futuro(threading.Thread):
     def order_report_handler(self,event):
         print("Event: {}".format(event))
 
-futuro = Ggal_futuro()
-futuro.start()
+
+class Ggal_adr(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self,name="ggal_adr",target=Ggal_adr.run)
+        self.price = 0
+        self.url = "http://www.rava.com/empresas/perfil.php?e=ADRGGAL&x=13&y=9"
+        self.play = True
+
+    def run(self):
+        time.sleep(10)
+        page = requests.get(self.url)
+        while self.play:
+            page = requests.get(self.url)
+            if page.status_code == 200:
+                soup = b(page.text, "html.parser")
+                eq = soup.find("span", {"class": "fontsize6"}).text.replace(",", ".")
+                self.price = float(eq)
+                print(self.price)
+            else:
+                print("Error. Se salió del bucle")
+                break
+

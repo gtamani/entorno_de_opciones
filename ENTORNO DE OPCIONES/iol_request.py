@@ -194,7 +194,7 @@ def post_order(ticker,cantidad,precio):
 
     url = "https://api.invertironline.com/api/v2/operar/Comprar"
 
-    print(datetime(2020,10,24).strftime("%Y-%m-%d"))
+    #print(datetime(2020,10,24).strftime("%Y-%m-%d"))
 
     data = {"mercado": "bCBA",
             "simbolo": ticker,
@@ -207,7 +207,7 @@ def post_order(ticker,cantidad,precio):
 
     r = requests.post(url=url, data=data, headers=headers)
     access = json.loads(r.text)
-    print(access)
+    #print(access)
 
 
 

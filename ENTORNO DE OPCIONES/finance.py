@@ -48,7 +48,7 @@ def vi(spot,strike,tiempo_al_vencimiento,prima,type = "C",interes=0.35):
     sigma_est = 0.5
     for i in range(100):
         sigma_est -= (calculo_blackScholes(spot,strike,tiempo_al_vencimiento,type,sigma_est,interes)-prima) / vega(spot,strike,tiempo_al_vencimiento,interes,sigma_est)
-    print(strike,round(sigma_est * 100,2))
+    #print(strike,round(sigma_est * 100,2))
 
 
     return round(sigma_est * 100,2)
@@ -171,4 +171,4 @@ def tna_a_tea(tna,capitalize):
 
 #print(volatilidad_implicita(34,30,1,0.0001,2.724,0.5))
 
-print([calculo_blackScholes(115,x,0.14,"C") for x in range(50,100,2)])
+#print([calculo_blackScholes(115,x,0.14,"C") for x in range(50,100,2)])
