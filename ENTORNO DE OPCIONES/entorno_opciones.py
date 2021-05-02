@@ -48,10 +48,7 @@ TENER UN .TXT DE TODAS LAS POSICIONES
 
 import time
 import numpy as np
-import random
 import pandas as pd
-import tkinter as tk
-from tkinter import *
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
@@ -59,7 +56,7 @@ from hilo_request import Hilo_update, Ggal_futuro
 import finance
 import os
 import desarbitrajes
-
+import random
 
 
 class Ggal:

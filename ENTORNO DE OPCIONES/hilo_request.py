@@ -1,8 +1,8 @@
-import threading
+import threading,os
 import iol_request
 import logging
 import time
-import pyRofex
+#import pyRofex
 from bs4 import BeautifulSoup as b
 import requests
 
@@ -77,22 +77,38 @@ class Ggal_futuro(threading.Thread):
         threading.Thread.__init__(self,name="ggal_futuro",target=Ggal_futuro.run)
         self.price = 0
 
-        with open("C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/txt/datos cuenta.txt","r",encoding="utf-8") as file:
-            datos = [i.replace("\n", "") for i in file.readlines()]
+        print(os.getcwd())
+        os.chdir("..")
+        os.chdir("..")
+        for f_dir, d_dir, d_file in os.walk(os.getcwd()):
+            if "data" in f_dir:
+                path = f_dir + "\data.txt"
+                print(path)
+        with open(path, "r") as handler:
+            print(handler.read())
+            
+            #path = ".data/" if d_dir == "data" 
+        
+        #with open("C:/Users/Giuliano/Desktop/CODES/PYTHON/JSON/txt/datos cuenta.txt","r",encoding="utf-8") as file:
+        #    datos = [i.replace("\n", "") for i in file.readlines()]
 
+        """
         pyRofex.initialize(user=datos[0],
                            password=datos[1],
                            account=datos[2],
                            environment=pyRofex.Environment.REMARKET)
+        """
 
 
     def run(self):
         time.sleep(10)
+        """
         pyRofex.init_websocket_connection(market_data_handler=self.data_handler)
         pyRofex.add_websocket_order_report_handler(self.order_report_handler)
         pyRofex.add_websocket_error_handler(self.error_handler)
 
         pyRofex.market_data_subscription(tickers=["GGALOct20"],entries=[pyRofex.MarketDataEntry.LAST])
+        """
 
     def data_handler(self,event):
         self.price = float(event["marketData"]["LA"]["price"])
