@@ -211,7 +211,7 @@ def post_order(ticker,cantidad,precio):
 
 
 
-#bearer_token, refresh_token = log_in()
+bearer_token, refresh_token = log_in()
 #print(bearer_token)
 #print(refresh_token)
 #bearer_token, refresh_token = refresh(refresh_token)
