@@ -46,4 +46,4 @@ def vi(spot,strike,tiempo_al_vencimiento,prima,type = "C",interes=0.35):
     return round(sigma_est * 100,2)
 """
 
-print(get_blackscholes(116,100,30,"C",sigma=0.3,interes=0.3))
+print(get_blackscholes(100,100,30,"C",sigma=0.3,interes=0.3))
