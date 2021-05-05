@@ -13,7 +13,9 @@ def log_in():
     data = {"username":user,"password":password,"grant_type":"password"}
     r = requests.post(url=url, data=data)
     access = json.loads(r.text)
+    
     path = "./.env"
+
 
     with open(path,"r",encoding="utf-8") as handler:
         content = "".join([x for x in handler.readlines()[0:2]])
