@@ -3,6 +3,7 @@ import threading,time
 from Login import Login
 from App import App
 from Settings import Settings
+import API_data
 
 def logged_in():
         app = None
@@ -13,7 +14,7 @@ def logged_in():
 
 
 if __name__ == "__main__":
-
+    API_data.log_in()
     login = Login()
     app = logged_in() #Main thread
 

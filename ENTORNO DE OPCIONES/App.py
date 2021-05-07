@@ -2,11 +2,14 @@ import tkinter as tk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time, threading
+from datetime import datetime
 
 from API_data import *
 from get_graph import *
 
 from Settings import Settings
+from Login import Login
+from pg_database import Postgres_database
 
 
 class App:
@@ -15,12 +18,21 @@ class App:
         t0 = time.time()
         self.user = user
         self.root = tk.Tk()
-        self.root.geometry("2200x600")
-        self.root.title("Entorno de opciones GGAL")
-        self.root.pack_propagate(False)
-        self.settings=False
+        self.database = Postgres_database()
+        self.settings= False
+        self.closed = False
+        self.all_stocks = {"ggal":"Galicia","alua":"Aluar", "come":"Comercial del Plata","pamp":"Pampa Energia","ypfd":"YPF"}
+        
         
         self.load_settings()
+        self.current_stock = self.equity.get()[:4].lower()
+
+        self.root.geometry("2200x600")
+        self.root.title("Entorno de opciones "+self.current_stock.upper())
+        self.root.pack_propagate(False)
+
+
+        
 
         # Menu
         self.menu_bar = tk.Menu(self.root)
@@ -34,7 +46,7 @@ class App:
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Configuraciones",command=lambda:threading.Thread(target=self.init_settings).start())
         self.menu_bar.add_separator()
-        self.menu_bar.add_command(label="Cambiar de usuario",command=lambda:print("Changed!"))
+        self.menu_bar.add_command(label="Cambiar de usuario",command=self.change_user)
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Salir",command=self.on_closing)
         #self.menu.add_cascade(label="File",menu=self.menu_bar)
@@ -45,8 +57,8 @@ class App:
         self.text1.place(x=30, height=550, width=540)
         self.text2 = tk.Text(self.root)
         self.text2.place(x=600, height=550, width=540)
-        self.text4 = tk.Text(self.root)
-        #self.text4.place(x=1150, y=425, height=90, width=310) #
+        self.text4 = tk.Label(self.root,font=("Verdana",16))
+        self.text4.place(x=1150, y=400, height=90, width=310) #
         self.text6 = tk.Text(self.root)
         #self.text6.place(x=1470, y=425, height=150, width=200) #
 
@@ -63,7 +75,7 @@ class App:
         self.cant_operar.set(0)
         self.radiobutton = tk.Radiobutton(self.root, var=self.opcion, value="GGAL")
         #self.radiobutton["command"] = lambda:clicked(opcion.get())
-        self.radiobutton.place(x=1700, y=482)
+        #self.radiobutton.place(x=1700, y=482)
 
         #Labels
         self.text3 = tk.Label(self.root, text="")
@@ -72,9 +84,8 @@ class App:
         self.text5.place(x=300, y=567)
 
         #Buttons
-        self.button1 = tk.Button(self.root, text="Simular!")
-        #self.button1["command"] = lambda: simular(opcion.get(),cant_operar.get())
-        #self.button1.place(x="125", y="567")
+        self.button1 = tk.Button(self.root, text="Operar!",command=self.buy)
+        self.button1.place(x="125", y="567")
         #self.button2 = tk.Button(self.root, text="(+)")
         #self.button2["command"] = lambda: lambda: clicked(opcion.get(),1))
         #self.button2.place(x="200", y="567")
@@ -94,6 +105,9 @@ class App:
         self.button7["command"] = lambda: threading.Thread(target=self.get_options).start()
         self.button7.place(x="700",y="567")
         self.radiobuttons_shown = False
+
+        if self.is_auto.get():
+            self.button7["state"] = "disabled"
         
         
 
@@ -103,7 +117,7 @@ class App:
         self.ax.plot(x,y)
         self.ax.plot(x,y2)
 
-        self.ax.set_xlabel("Precio GGAL")
+        self.ax.set_xlabel("Precio "+self.current_stock.upper())
         self.ax.set_xlabel("($) Ganancia")
         self.ax.grid()
         self.ax.set_xlim(100,140)
@@ -117,36 +131,45 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
         #OPCIONES DISPONIBLES
-        self.options_list = []
+        self.options_dict = {}
         self.stock_price = 0
         self.df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
         self.df.set_index("Serie", inplace=True)
 
-        self.update_thread = threading.Thread(target=self.get_options)
-        self.update_thread.start()
 
         #Hilos y cierre del loop
 
-        self.root.after(1,lambda: threading.Thread(target=self.update).start())
+        self.threads = []
+        self.get_options_thread = threading.Thread(target=self.get_options,name="get_options")
+        self.get_options_thread.start()
+        self.threads.append(self.get_options_thread)
+        self.update_thread = threading.Thread(target=self.update,name="update_info")
+        self.update_thread.start()
+        self.threads.append(self.update_thread)
+
+
         self.root.mainloop()
         
 
-
+    
 
     def plot_options(self):
         y1, y2 = 30, 30
-        for i in self.options_list:
+        last = ""
+        for i in self.options_dict.values():
                 if i.side == "C":
                     self.botons_and_colors(i.ticker, y1, i.side, i.estado)
                     y1 += 16
                 else:
                     self.botons_and_colors(i.ticker, y2, i.side, i.estado)
                     y2 += 16
+                    last = i
+                
         
-        self.radiobuttons_shown = True
-        self.opcion.set(self.options_list[0].ticker)
-        if not self.radiobuttons_shown:
-            self.text4.insert(tk.INSERT,"GGAL : $"+str(self.stock_price))
+        
+        self.opcion.set(last)
+        
+        self.text4["text"] = self.current_stock.upper()+" : $ "+str(self.stock_price)
 
 
     def botons_and_colors(self,ticker,y,side,itm):
@@ -179,18 +202,21 @@ class App:
         loop = True
         while loop:
             print("entra")
-            self.stock_price = get_equity("ggal")
-            self.options_list = []
+            self.stock_price = get_equity(self.current_stock)
+            self.options_dict = {}
             
-            for x in get_options()[0]:
-                self.options_list.append(Opcion(x[0],x[1],x[2],x[3],self.stock_price))
+            for x in get_options(self.current_stock)[0]:
+                option = Opcion(x[0],x[1],x[2],x[3],self.stock_price)
+                self.options_dict[option.ticker] = option
                 #["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"]
                 self.df.loc[x[2]] = [x[3], 0, 0, 0, 0, 0]
+
+            print(self.df)
 
             self.text1.delete("1.0","end")
             self.text2.delete("1.0","end")
             self.text1.insert(tk.INSERT,self.df.iloc[[x for x in range(0, len(self.df)) if self.df.index[x][3] == "C"]].to_string())  # Calls
-            self.text2.insert(tk.INSERT,self.df.iloc[[x for x in range(1, len(self.df)) if self.df.index[x][3] == "V"]].to_string())  # Puts
+            self.text2.insert(tk.INSERT,self.df.iloc[[x for x in range(0, len(self.df)) if self.df.index[x][3] == "V"]].to_string())  # Puts
 
             self.plot_options()
 
@@ -199,27 +225,31 @@ class App:
             print("loop: ",loop)
 
             if loop:
-                for seconds in range(self.iter_aut.get()):
-                    print(seconds,self.is_auto.get())
-                    time.sleep(1)
+                for seconds in range(self.iter_aut.get()*2):
+                    print(seconds/2,self.is_auto.get())
+                    time.sleep(0.5)
+                    if self.closed:
+                        break
 
             
  
     def update(self):
-        a = str(self.opcion.get())
-        try:
-            cant = int(self.entry_var.get())
-            sell_or_buy = "Comprar" if cant > 0 else "Vender"
-            text = sell_or_buy+ " " + str(abs(int(self.entry_var.get())))
-            text += " lotes "+ a
-            text += " a $" + str(float(self.df.loc[a,"Prima"]) * abs(cant)*100)
-        except:
-            text = "<----   Seleccione una cantidad de " + a
-        self.text5["text"] = text+"!"
-        
-        #print(self.df)
+        while not self.closed:
+            a = str(self.opcion.get())
+            try:
+                cant = int(self.entry_var.get())
+                sell_or_buy = "Comprar" if cant > 0 else "Vender"
+                text = sell_or_buy+ " " + str(abs(int(self.entry_var.get())))
+                text += " lotes "+ a
+                text += " a $" + str(float(self.df.loc[a,"Prima"]) * abs(cant)*100)
+            except:
+                text = "<----   Seleccione una cantidad de " + a
+            self.text5["text"] = text+"!"
+            
+            time.sleep(0.05)
+            
+    
 
-        self.root.after(5,self.update)
 
     def load_excel(self):
         os.chdir(os.getcwd()+os.sep+"data"+os.sep+"boards")
@@ -280,6 +310,8 @@ class App:
         self.auto = tk.Label(self.settings,text="Actualización automatica")
         self.auto.place(x=45,y=60)
         tk.Radiobutton(self.settings,var= self.is_auto, value=1, command=lambda:self.checkbutton(1)).place(x=15,y=60)
+
+
         self.auto_iter = tk.Label(self.settings,text="Cada"+" "*23+"segundos")
         self.auto_iter.place(x=210,y=60)
         self.spinbox = tk.ttk.Spinbox(self.settings,textvariable = self.iter_aut,values=[5,7,10,15,20,30,60],format="%3.0f",width=5, command=lambda:print(self.iter_aut.get()))
@@ -289,9 +321,10 @@ class App:
         self.checkbutton(0)
 
         #2. Mostrar opciones de GGAL
+        last_equity_value = self.equity.get()
         tk.Label(self.settings,text="Mostrar opciones de").place(x=45,y=120)
-        self.combobox = tk.ttk.Combobox(self.settings,textvariable= self.equity,justify="center",values=("GGAL - Galicia","ALUA - Aluar","COME - Comercial del Plata","PAMP Pampa Energia","YPFD - YPF"),state="enabled",width=25)
-        self.combobox.set(self.equity.get())
+        self.combobox = tk.ttk.Combobox(self.settings,textvariable= self.equity,justify="center",values=(tuple([key.upper()+" - "+value for key, value in self.all_stocks.items()])),state="enabled",width=25)
+        self.combobox.set(last_equity_value)
         self.combobox.place(x=180,y=120)
         tk.Label(self.settings,text="Mostrar Subyascente").place(x=45,y=150)
         tk.Checkbutton(self.settings,variable= self.show_equity,onvalue=True,offvalue=False, command=lambda:print(self.show_equity.get())).place(x=15,y=150)
@@ -354,16 +387,35 @@ class App:
         self.checkbutton_controller()
         self.spinbox_controller(self.range_lines.get())
 
-        tk.Button(self.settings,text="Guardar y salir",command=self.apply_settings).place(relx=0.8,rely=0.9)
+        tk.Button(self.settings,text="Guardar y salir",command=lambda:self.apply_settings(last_equity_value != self.equity.get())).place(relx=0.8,rely=0.9)
 
 
-    def apply_settings(self):
+    def apply_settings(self,equity_changed):
         print("Aplicando cambios!")
-        if self.is_auto:
+        print(equity_changed)
+
+        if self.is_auto.get():
             print("Automatico!")
+            print("is alive? ",self.update_thread.is_alive())
             if not self.update_thread.is_alive():
                 self.update_thread = threading.Thread(target=self.get_options)
                 self.update_thread.start()
+            self.button7["state"] = "disabled"
+        else:
+            self.button7["state"] = "normal"
+
+        if equity_changed:
+            print("cambio")
+            self.on_closing()
+            print("se cerró")
+            App(self.user)
+
+        if not self.show_equity.get():
+            self.text4["state"] = "disabled"
+        else:
+            self.text4["state"] = "normal"
+
+
 
 
         self.settings.destroy()
@@ -394,7 +446,11 @@ class App:
         if response is not None:
             if response:
                 self.save_changes()
+            self.closed = True
+            time.sleep(1)
+            print(self.update_thread.is_alive(),self.get_options_thread.is_alive())
             self.root.destroy()
+        self.database.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")")
 
     def save_changes(self):
         self.total_settings = [str(self.is_auto.get()),str(self.iter_aut.get()),str(self.equity.get()),str(self.show_equity.get()),str(self.add_result_finish.get()),str(self.show_gost.get()),
@@ -403,6 +459,20 @@ class App:
         with open("data/settings_values.txt","w",encoding="utf-8") as handler:
             handler.write(",".join(self.total_settings))
             print("Guardado!")
+
+    def change_user(self):
+        self.on_closing()
+        Login()
+
+    def buy(self):
+        print("aaaaaaaaaaaaaaa")
+        print(self.opcion.get(),self.entry_var.get())
+        cant = int(self.entry_var.get())
+        a = "buy" if cant > 0 else "sell"
+        op = self.options_dict[self.opcion.get()]
+        print(op.ticker,op.price,op.side,op.base,op.subyascente)
+        now = "to_timestamp("+str(datetime.timestamp(datetime.now()))+")"
+        self.database.insert_into("historial",[now,a,abs(cant),op.price,(-cant)*op.price,op.ticker])
 
 
         
@@ -414,7 +484,11 @@ class App:
 class Opcion:
 
     def __init__(self,base,side,ticker,price,subyascente):
-        self.base = float(base)
+        try:
+            self.base = float(base)
+        except ValueError: #Notación cientifica
+            self.base = float(base.replace(",",""))
+            print(self.base)
         self.side = side
         self.price = float(price)
         self.ticker = ticker

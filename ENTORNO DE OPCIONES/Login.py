@@ -1,7 +1,9 @@
 import tkinter as tk
 import tkinter.ttk
-import os
+import os, numpy as np
 import pandas as pd
+from pg_database import Postgres_database
+from datetime import datetime
 
 class Login:
 
@@ -22,6 +24,7 @@ class Login:
         self.entry = tk.Entry(textvariable= self.entry_var)
         self.progressbar = tk.ttk.Progressbar(self.root,orient= tk.HORIZONTAL,length=200,value=0)
     
+        self.database = Postgres_database()
 
         self.current_user =  None
         self.from_entry = False
@@ -30,12 +33,17 @@ class Login:
         self.button_yes.place(x=200,y=70,width=100,height=20)
         self.button_no.place(x=310,y=70,width=100,height=20)
 
-        
+        """
         with open(os.getcwd()+os.sep+"data/users.txt","r",encoding="utf-8") as handler:
             self.users = [x.strip('\n') for x in handler.readlines()]
         self.listbox.insert(0,*self.users)
+        """
+        data = self.database.select("users",columns="username,last_login")
+        self.users,self.last_login = np.array(data).T.tolist()
 
-        if self.users == []:
+        print(self.users == False)
+        print(self.users)
+        if not self.users:
             self.new_user()
         else:
             self.text["text"] = "¿Eres "+self.users[0]+"?"
@@ -46,18 +54,29 @@ class Login:
         self.root.mainloop()
 
     def create_user(self,user):
+
+        #Agrego usuario a la base de datos
+        now = datetime.timestamp(datetime.now())
+        now = "to_timestamp("+str(now)+")"
+        self.database.insert_into("users",[self.entry_var.get(),now,now])
+
         df = pd.DataFrame(columns=["Opcion","Side","Strike","Price","Cant"])
         df.set_index("Opcion",inplace=True)
         df.loc["GFGC120OCT"] = ["C",120,2.5,5]
         df.loc["GFGV120OCT"] = ["V",120,5,5]
         df.to_excel("./data/boards/"+user.get()+"_board.xlsx")
+        """
         with open(os.getcwd()+os.sep+"data/users.txt","a",encoding="utf-8") as handler:
             text = user.get()
             if len(self.users) != 0:
                 text = "\n"+text
             handler.write(text)
+        """
         self.users.insert(0,user.get())
-        self.listbox.insert(0,self.users[0])
+        self.last_login.insert(0,datetime.now())
+        #self.listbox.insert(0,self.users)
+        print(self.users)
+        print(self.last_login)
         self.show_users()
         
 
@@ -86,6 +105,9 @@ class Login:
         if len(self.users) == 1 and self.new_user_created is False:
             self.new_user()
         else:
+            for i in range(len(self.users)):
+                self.listbox.insert(i,self.users[i]+" - "+self.last_login[i].strftime("%d/%m/%Y  %H:%M:%S"))
+
             self.from_entry = True
             self.entry.place_forget()
             self.button.place_forget()

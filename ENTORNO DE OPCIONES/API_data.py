@@ -18,14 +18,14 @@ def log_in():
 
 
     with open(path,"r",encoding="utf-8") as handler:
-        content = "".join([x for x in handler.readlines()[0:2]])
+        content = "".join([x for x in handler.readlines()[0:3]])
 
     with open(path,"w",encoding="utf-8") as handler:
         handler.write(content+"ACCESS-TOKEN='"+access["access_token"]+"'\nREFRESH-TOKEN='"+access["refresh_token"]+"'")
 
 
 
-def get_options():
+def get_options(stock="GGAL"):
     """
     Obtenemos listas con las opciones del próximo ejercicio
     También devuelve el OPEX (Option Expiration Date)
@@ -33,7 +33,7 @@ def get_options():
 
     vencimiento = "2021-06-18T00:00:00"
     headers = {"Authorization":"Bearer "+os.environ.get("ACCESS-TOKEN")}
-    r2 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/GGAL/Opciones",headers = headers)
+    r2 = requests.get(url="https://api.invertironline.com/api/v2/bCBA/Titulos/"+stock.upper()+"/Opciones",headers = headers)
     r = json.loads(r2.text)
     
     opc = []
