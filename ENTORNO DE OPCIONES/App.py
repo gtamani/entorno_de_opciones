@@ -205,12 +205,16 @@ class App:
             self.stock_price = get_equity(self.current_stock)
             self.options_dict = {}
             
+            data = []
             for x in get_options(self.current_stock)[0]:
                 option = Opcion(x[0],x[1],x[2],x[3],self.stock_price)
                 self.options_dict[option.ticker] = option
                 #["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"]
                 self.df.loc[x[2]] = [x[3], 0, 0, 0, 0, 0]
+                data.append([option.subyascente,option.ticker,option.price,option.base,option.])
 
+            self.database.query("TRUNCATE TABLE options")
+            self.database.insert_into("options",)
             print(self.df)
 
             self.text1.delete("1.0","end")
@@ -450,7 +454,7 @@ class App:
             time.sleep(1)
             print(self.update_thread.is_alive(),self.get_options_thread.is_alive())
             self.root.destroy()
-        self.database.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")")
+        self.database.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")","username",self.user)
 
     def save_changes(self):
         self.total_settings = [str(self.is_auto.get()),str(self.iter_aut.get()),str(self.equity.get()),str(self.show_equity.get()),str(self.add_result_finish.get()),str(self.show_gost.get()),
@@ -473,6 +477,24 @@ class App:
         print(op.ticker,op.price,op.side,op.base,op.subyascente)
         now = "to_timestamp("+str(datetime.timestamp(datetime.now()))+")"
         self.database.insert_into("historial",[now,a,abs(cant),op.price,(-cant)*op.price,op.ticker])
+        
+        try:
+            cant_ant, avg_ant = self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")
+
+        except:
+            cant_ant, avg_ant= 0,0
+
+        if (cant_ant - cant) < 0 :
+            print("Lanzado en descubierto!")
+        cant_total = cant_ant+cant
+        if a == "buy":
+            total_value = cant_ant*avg_ant+cant*op.price
+            avg_price = total_value/cant_total
+        else:
+            avg_price = avg_ant
+            total_value = cant_total*avg_price
+        
+        self.database.insert_into("tenencia",[op.ticker,cant_total,avg_price,op.price,total_value])
 
 
         

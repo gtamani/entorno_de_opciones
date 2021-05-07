@@ -46,13 +46,17 @@ class Postgres_database:
         except:
             raise "Error manipulating data."
 
-    def insert_into(self,table,data):
+    def insert_into(self,table,*data):
         print(self.database)
         columns = "("+", ".join(self.database[table])+")"
-        edit_data = "(" + ", ".join([str(x) if type(x) is int or type(x) is float else "'"+x+"'" if not x.startswith("to_timestamp") else x for x in data]) + ")"
-        print(edit_data)
 
-        command= f"INSERT INTO {table} {columns} VALUES {edit_data}"
+        values = []
+        for i in data:
+            edit_data = "(" + ", ".join([str(x) if type(x) is int or type(x) is float else "'"+x+"'" if not x.startswith("to_timestamp") else x for x in data]) + ")"
+        
+        values = ", ".join(values)
+
+        command= f"INSERT INTO {table} {columns} VALUES {values}"
         self.query(command)
 
     def select(self,table,columns="*",condition=None):
@@ -61,12 +65,13 @@ class Postgres_database:
         add = f" WHERE {condition};" if condition else ";"
         return self.query(command + add)
 
-    def update(self,table,key,value):
-        command = f"UPDATE {table} set {key}={value};"
+    def update(self,table,key,value,attribute_key,atribute_value):
+        command = f"UPDATE {table} set {key}={value} WHERE {attribute_key}='{atribute_value}';"
         self.query(command)
+
 
 db = Postgres_database()
 #print(db.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")"))
 #print(dict(db.select("users",columns="username,last_login")))
 #db.query("ALTER TABLE historial ADD COLUMN opcion varchar(20)")
-print(db.select("historial"))
+#print(db.select("tenencia",columns="(quant,avg_price)",condition="options = 'asdasd'"))
