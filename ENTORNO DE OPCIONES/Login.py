@@ -9,9 +9,9 @@ class Login:
 
     def __init__(self):
 
-        self.root = tk.Tk()
-        self.root.geometry("600x150")
-        self.root.title("Log In")
+        self.tk = tk.Tk()
+        self.tk.geometry("600x150")
+        self.tk.title("Log In")
         self.text, self.text2 = tk.Label(),tk.Label(text = "Cargar mis opciones al ingresar.")
         self.show_excel = tk.IntVar()
         self.checkbutton = tk.Checkbutton(variable=self.show_excel,onvalue=True,offvalue=False)
@@ -22,7 +22,7 @@ class Login:
         self.button = tk.Button(text="Go!",command=lambda: self.create_user(self.entry_var))
         self.entry_var = tk.StringVar()
         self.entry = tk.Entry(textvariable= self.entry_var)
-        self.progressbar = tk.ttk.Progressbar(self.root,orient= tk.HORIZONTAL,length=200,value=0)
+        self.progressbar = tk.ttk.Progressbar(self.tk,orient= tk.HORIZONTAL,length=200,value=0)
     
         self.database = Postgres_database()
 
@@ -39,7 +39,11 @@ class Login:
         self.listbox.insert(0,*self.users)
         """
         data = self.database.select("users",columns="username,last_login")
-        self.users,self.last_login = np.array(data).T.tolist()
+        try:
+            self.users,self.last_login = np.array(data).T.tolist()
+        except:
+            self.users,self.last_login = [],[]
+
 
         print(self.users == False)
         print(self.users)
@@ -51,14 +55,14 @@ class Login:
             self.text2.place(x=230,y=100)
             self.checkbutton.place(x=200,y=100)
 
-        self.root.mainloop()
+        self.tk.mainloop()
 
     def create_user(self,user):
 
         #Agrego usuario a la base de datos
         now = datetime.timestamp(datetime.now())
         now = "to_timestamp("+str(now)+")"
-        self.database.insert_into("users",[self.entry_var.get(),now,now])
+        self.database.insert_into("users",[[self.entry_var.get(),now,now]])
 
         df = pd.DataFrame(columns=["Opcion","Side","Strike","Price","Cant"])
         df.set_index("Opcion",inplace=True)
@@ -88,7 +92,7 @@ class Login:
         if self.show_excel.get():
             os.chdir(os.getcwd()+os.sep+"data"+os.sep+"boards")
             os.system(self.current_user+"_board.xlsx")
-        self.root.destroy()   
+        self.tk.destroy()   
 
 
     

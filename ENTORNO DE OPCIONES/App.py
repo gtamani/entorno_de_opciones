@@ -1,10 +1,11 @@
 import tkinter as tk
+from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time, threading
 from datetime import datetime
 
-from API_data import *
+from API_data import Data_market
 from get_graph import *
 
 from Settings import Settings
@@ -19,7 +20,10 @@ class App:
         self.user = user
         self.root = tk.Tk()
         self.database = Postgres_database()
+        self.market_data = Data_market()
         self.settings= False
+        self.portfolio = False
+        self.historial = False
         self.closed = False
         self.all_stocks = {"ggal":"Galicia","alua":"Aluar", "come":"Comercial del Plata","pamp":"Pampa Energia","ypfd":"YPF"}
         
@@ -43,6 +47,10 @@ class App:
 
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Guardar",command=lambda:threading.Thread(target=self.save_changes).start())
+        self.menu_bar.add_separator()
+        self.menu_bar.add_command(label="Tenencia",command=lambda:threading.Thread(target=self.tk_portfolio).start())
+        self.menu_bar.add_separator()
+        self.menu_bar.add_command(label="Historial",command=lambda:threading.Thread(target=self.tk_historial).start())
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Configuraciones",command=lambda:threading.Thread(target=self.init_settings).start())
         self.menu_bar.add_separator()
@@ -201,21 +209,26 @@ class App:
 
         loop = True
         while loop:
-            print("entra")
-            self.stock_price = get_equity(self.current_stock)
+            self.stock_price = self.market_data.get_equity(self.current_stock)
             self.options_dict = {}
             
-            data = []
-            for x in get_options(self.current_stock)[0]:
-                option = Opcion(x[0],x[1],x[2],x[3],self.stock_price)
+            data_set_into = []
+            data_update = {}
+            opex_timestamp = datetime.timestamp(self.market_data.dt_opex) 
+
+            for x in self.market_data.get_options(self.current_stock):
+                option = Opcion(x[0],x[1],x[2],x[3],self.stock_price,opex_timestamp)
                 self.options_dict[option.ticker] = option
                 #["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"]
                 self.df.loc[x[2]] = [x[3], 0, 0, 0, 0, 0]
-                data.append([option.subyascente,option.ticker,option.price,option.base,option.])
+                data_set_into.append([option.subyascente,option.ticker,option.price,option.base,"to_timestamp("+str(opex_timestamp)+")"])
+                data_update[option.ticker] = option.price
+                
+            
 
             self.database.query("TRUNCATE TABLE options")
-            self.database.insert_into("options",)
-            print(self.df)
+            self.database.insert_into("options",data_set_into)
+            self.database.multiple_update("tenencia","current_price","options",data_update)
 
             self.text1.delete("1.0","end")
             self.text2.delete("1.0","end")
@@ -269,7 +282,6 @@ class App:
 
         
 
-        print(self.settings_values)
         self.is_auto = tk.IntVar()
         self.is_auto.set(int(self.settings_values[0]))
         self.iter_aut = tk.IntVar()
@@ -456,6 +468,79 @@ class App:
             self.root.destroy()
         self.database.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")","username",self.user)
 
+    def tk_portfolio(self):
+        print("portfolio!")
+        self.portfolio = tk.Toplevel()
+        self.portfolio.title("Tenencia")
+        self.portfolio.geometry("1200x400")
+        self.portfolio.pack_propagate(False)
+
+        frame = tk.Frame(self.portfolio)
+        frame.pack()
+        scrollbar = ttk.Scrollbar(frame)
+        my_tree = ttk.Treeview(frame,height=5,yscrollcommand=scrollbar.set)
+
+        
+        scrollbar.pack(side=tk.RIGHT,fill=tk.Y)
+        scrollbar.config(command=my_tree.yview)
+    
+
+        columns = ("Opcion","Cantidad","Avg. Price","Precio Actual","Valorizado","Turnover")
+        my_tree["columns"] = columns
+        
+        my_tree.column("#0",width=10)
+        my_tree.heading("#0",text="")
+        for c in columns:
+            #my_tree.column(c,width=10)
+            my_tree.heading(c,text=c)
+        
+        try:
+            query= self.database.select("tenencia",columns='("options","quant","avg_price","current_price","total_value",((("current_price"/"avg_price")-1))*100)')
+        except:
+            query= self.database.select("tenencia",columns='("options","quant","avg_price","current_price","total_value","current_price"-"avg_price")')
+            
+        print("QUERY: ",query)
+        for values in query:
+            values = values[0].replace("(","").replace(")","").split(",")
+            values[-1] = round(float(values[-1]),2)
+            print(values)
+            my_tree.insert(parent="",index="end",values=values,)
+
+        """
+        my_tree.tag_a
+        self.text1.tag_add(etiqueta, inicio, fin)
+            self.text1.tag_config(etiqueta, background=colors[itm], foreground="black"
+        """
+        my_tree.pack()
+
+
+        tk.Button(self.portfolio,text="Salir").place(relx=0.8,rely=0.9)
+        
+
+    def tk_historial(self):
+        print("historial!")
+        self.historial = tk.Toplevel()
+        self.historial.title("Historial")
+        self.historial.geometry("1200x400")
+        self.historial.pack_propagate(False)
+
+        my_tree = ttk.Treeview(self.historial,height=5)
+        columns = ("Fecha","Side","Cantidad","Precio","Total","Opcion")
+        my_tree["columns"] = columns
+        
+        my_tree.column("#0",width=10)
+        my_tree.heading("#0",text="")
+        for c in columns:
+            #my_tree.column(c,width=10)
+            my_tree.heading(c,text=c)
+        for values in self.database.select("historial"):
+            my_tree.insert(parent="",index="end",values=values[1:],)
+        my_tree.pack()
+
+
+        tk.Button(self.historial,text="Salir").place(relx=0.8,rely=0.9)
+        
+
     def save_changes(self):
         self.total_settings = [str(self.is_auto.get()),str(self.iter_aut.get()),str(self.equity.get()),str(self.show_equity.get()),str(self.add_result_finish.get()),str(self.show_gost.get()),
                             str(self.range.get()),str(self.range_lines.get()),str(self.presition.get()),str(self.add_range_lines.get()),str(self.range_line.get()),str(self.range_line2.get()),str(self.range_line3.get())]
@@ -476,25 +561,39 @@ class App:
         op = self.options_dict[self.opcion.get()]
         print(op.ticker,op.price,op.side,op.base,op.subyascente)
         now = "to_timestamp("+str(datetime.timestamp(datetime.now()))+")"
-        self.database.insert_into("historial",[now,a,abs(cant),op.price,(-cant)*op.price,op.ticker])
+        self.database.insert_into("historial",[[now,a,abs(cant),op.price,round((-cant)*op.price*100,2),op.ticker]])
         
         try:
-            cant_ant, avg_ant = self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")
+            data = self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")[0][0]
+            data = data.replace("(","").replace(")","")
+            cant_ant, avg_ant = data.split(",")
+            cant_ant,avg_ant = int(cant_ant),float(avg_ant)
+            exists = True
+            print(self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")[0])
 
         except:
             cant_ant, avg_ant= 0,0
+            exists = False
+            
 
-        if (cant_ant - cant) < 0 :
-            print("Lanzado en descubierto!")
+        #if (cant_ant - cant) < 0 and op.side == "V":
+        #    print("Lanzado en descubierto!")
         cant_total = cant_ant+cant
         if a == "buy":
             total_value = cant_ant*avg_ant+cant*op.price
             avg_price = total_value/cant_total
         else:
             avg_price = avg_ant
-            total_value = cant_total*avg_price
+            total_value = cant_total*avg_price*100
+
+
         
-        self.database.insert_into("tenencia",[op.ticker,cant_total,avg_price,op.price,total_value])
+        if not exists:
+            self.database.insert_into("tenencia",[[op.ticker,cant_total,avg_price,op.price,round(total_value,2)]])
+        else:
+            self.database.update("tenencia","quant",cant_total,"options",op.ticker)
+            self.database.update("tenencia","avg_price",avg_price,"options",op.ticker)
+            self.database.update("tenencia","total_value",total_value,"options",op.ticker)
 
 
         
@@ -505,7 +604,7 @@ class App:
 
 class Opcion:
 
-    def __init__(self,base,side,ticker,price,subyascente):
+    def __init__(self,base,side,ticker,price,subyascente,opex):
         try:
             self.base = float(base)
         except ValueError: #Notación cientifica
@@ -516,6 +615,7 @@ class Opcion:
         self.ticker = ticker
         self.sigma = 0
         self.subyascente = subyascente
+        self.opex = opex
 
         if self.side == "C":
             if self.subyascente >= self.base + 1.6:

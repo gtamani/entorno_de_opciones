@@ -14,7 +14,6 @@ def logged_in():
 
 
 if __name__ == "__main__":
-    API_data.log_in()
     login = Login()
     app = logged_in() #Main thread
 
