@@ -6,6 +6,7 @@ load_dotenv()
 class Data_market:
     def __init__(self):
         self.dt_opex = self.get_opex()
+        self.days_to_opex = (self.dt_opex-datetime.today()).days
         self.opex = self.dt_opex.strftime("%Y-%m-%dT") + "00:00:00"
         self.log_in()
 
@@ -65,14 +66,11 @@ class Data_market:
     def third_friday(self,month,year):
         first_day = datetime(year,month,1)
         third_friday = 1 + abs(4 - first_day.weekday()) + 14
-        print("third: ",third_friday)
         return third_friday
  
-
     def get_opex(self):
         now = datetime.today()
         day,month, weekday,year = now.day,now.month,now.weekday(),now.year
-        print(day,month,year)
 
         if month % 2 != 0:
             month += 1
@@ -84,13 +82,7 @@ class Data_market:
             if month > 12:
                 month %= 12
                 year += 1
-        print(day,month,year)
         return datetime(year,month,self.third_friday(month,year))
 
 
             
-
-
-
-
-

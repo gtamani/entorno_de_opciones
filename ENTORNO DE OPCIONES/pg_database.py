@@ -97,11 +97,11 @@ db = Postgres_database()
 #db.query("ALTER TABLE historial ADD COLUMN opcion varchar(20)")
 #print(db.select("tenencia",columns="(quant,avg_price)",condition="options = 'asdasd'"))
 
-db.truncate("all")
+#db.truncate("all")
 #db.query("ALTER TABLE tenencia DROP CONSTRAINT tenencia_options_fkey")
 #print(db.select("tenencia"))
-#db.query("ALTER TABLE options ADD CONSTRAINT unique_constraint UNIQUE (price)")
-#db.query("ALTER TABLE options ADD CONSTRAINT foreign_key FOREIGN KEY (price) REFERENCES tenencia(current_price) ON UPDATE CASCADE")
+#db.query("ALTER TABLE tenencia ADD CONSTRAINT unique_constraint UNIQUE (options)")
+#db.query("ALTER TABLE options ADD CONSTRAINT foreign_key FOREIGN KEY (ticker) REFERENCES tenencia(options)")
 
 #print(db.select("tenencia"))
 #asdasd = {'GFGV11898J':10,'GFGV10398J':15}
@@ -109,3 +109,8 @@ db.truncate("all")
 #db.query("UPDATE tenencia SET current_price = CASE WHEN options = 'GFGV10398J' THEN 10 END, turnover = CASE WHEN options = 'GFGV10398J' THEN 30 END WHERE options IN ('GFGV10398J')") 
 #db.query("ALTER TABLE tenencia DROP COLUMN turnover")
 #print(db.select("tenencia",columns='("options","quant","avg_price","current_price","total_value",((("current_price"/"avg_price")-1))*100)'))
+"""
+for i in db.select("options"):
+    print(i)
+    print(i[0])
+"""

@@ -1,7 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib import style
+
 import time, threading
 from datetime import datetime
 
@@ -16,7 +19,6 @@ from pg_database import Postgres_database
 class App:
 
     def __init__(self,user):
-        t0 = time.time()
         self.user = user
         self.root = tk.Tk()
         self.database = Postgres_database()
@@ -25,6 +27,8 @@ class App:
         self.portfolio = False
         self.historial = False
         self.closed = False
+        self.new_changes = True
+        self.equity_changed = True
         self.all_stocks = {"ggal":"Galicia","alua":"Aluar", "come":"Comercial del Plata","pamp":"Pampa Energia","ypfd":"YPF"}
         
         
@@ -34,9 +38,6 @@ class App:
         self.root.geometry("2200x600")
         self.root.title("Entorno de opciones "+self.current_stock.upper())
         self.root.pack_propagate(False)
-
-
-        
 
         # Menu
         self.menu_bar = tk.Menu(self.root)
@@ -66,7 +67,7 @@ class App:
         self.text2 = tk.Text(self.root)
         self.text2.place(x=600, height=550, width=540)
         self.text4 = tk.Label(self.root,font=("Verdana",16))
-        self.text4.place(x=1150, y=400, height=90, width=310) #
+        self.text4.place(x=850, y=567) #
         self.text6 = tk.Text(self.root)
         #self.text6.place(x=1470, y=425, height=150, width=200) #
 
@@ -119,31 +120,32 @@ class App:
         
         
 
-        # Grafico
-        self.fig, self.ax = plt.subplots(1,1,figsize=(7, 4), dpi=100)
-        x,y,y2 = get_curves_sumed(get_portfolio("gtamani"))
-        self.ax.plot(x,y)
-        self.ax.plot(x,y2)
-
-        self.ax.set_xlabel("Precio "+self.current_stock.upper())
-        self.ax.set_xlabel("($) Ganancia")
-        self.ax.grid()
-        self.ax.set_xlim(100,140)
-        
-        self.chart = FigureCanvasTkAgg(self.fig, self.root)
-        self.chart.get_tk_widget().place(x=1150)
-
-        #self.plot_options()
-
-        #EVENTOS
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-    
         #OPCIONES DISPONIBLES
         self.options_dict = {}
         self.stock_price = 0
-        self.df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
+        #self.df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
+        self.df = pd.DataFrame(columns=["Serie", " "*3+"Prima", "B&Sch", " "*7+"Delta", "Gamma", "Tetha", "Vega"])
         self.df.set_index("Serie", inplace=True)
+        self.interest_rate = 0.3
+        self.sigma =  0.4
 
+
+        # Grafico
+        self.x,self.y,self.y2 = None,None,None
+        style.use("Solarize_Light2")
+        self.fig, self.ax = plt.subplots(2,1,figsize=(7, 5.5), dpi=100)
+        self.ax[0].plot(0,0)
+        self.ax[0].set_xlabel("Precio ")
+        self.ax[0].set_xlabel("($) Ganancia")
+        self.ax[0].grid()
+        self.stock_price = self.market_data.get_equity(self.current_stock)
+        self.animation= FuncAnimation(self.fig,func=self.update_graph,interval= 1000)
+        self.chart = FigureCanvasTkAgg(self.fig, self.root)
+        self.chart.draw()
+        self.chart.get_tk_widget().place(x=1150)
+
+        #EVENTOS
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         #Hilos y cierre del loop
 
@@ -154,13 +156,46 @@ class App:
         self.update_thread = threading.Thread(target=self.update,name="update_info")
         self.update_thread.start()
         self.threads.append(self.update_thread)
-
-
         self.root.mainloop()
         
 
-    
+    def update_graph(self,i):
 
+        if self.new_changes or self.equity_changed:
+            self.ax[0].clear()
+            self.fig.legends = []
+            self.ax[0].axhline(y=0,ls="--",c="black",linewidth=0.3)
+
+            if self.new_changes:
+                query = "SELECT options.ticker, options.strike, options.price, tenencia.quant,\
+                            options.opex FROM tenencia INNER JOIN options \
+                            ON tenencia.options = options.ticker;"
+                self.x,self.y,self.y2 = get_curves_sumed(self.database.query(query),presition=self.presition.get())
+                self.ax[0].plot(self.x,self.y)
+                self.new_changes = False
+
+            if self.equity_changed:
+                self.ax[0].plot(self.x,self.y)            
+                self.ax[0].axvline(self.stock_price,linewidth=0.7)
+
+                if self.add_range_lines.get():
+                    range_lines =  {0:{"line":self.range_line,"color":"#1D8348"},
+                                    1:{"line":self.range_line2,"color":"#9A7D0A"},
+                                    2:{"line":self.range_line3,"color":"#935116"}}
+
+                    for i in range(self.range_lines.get()):
+                        print(i," added")
+                        percentage = range_lines[i]["line"].get()/100
+                        legend= "Rango "+str(percentage)+"- ("+str(round((1-percentage)*self.stock_price,2))+","+str(round((1+percentage)*self.stock_price,2))+")"
+                        self.ax[0].axvline(self.stock_price * (1+percentage),ls="--",linewidth=0.5, c=range_lines[i]["color"],label= legend)
+                        self.ax[0].axvline(self.stock_price * (1-percentage),ls="--",linewidth=0.5, c=range_lines[i]["color"])
+
+                self.ax[0].set_xlim([self.stock_price*(1-(self.range.get()/100)),self.stock_price*(1+(self.range.get()/100))])
+                self.fig.legend()
+                self.equity_changed = False
+
+        return self.ax[0],
+    
     def plot_options(self):
         y1, y2 = 30, 30
         last = ""
@@ -172,9 +207,6 @@ class App:
                     self.botons_and_colors(i.ticker, y2, i.side, i.estado)
                     y2 += 16
                     last = i
-                
-        
-        
         self.opcion.set(last)
         
         self.text4["text"] = self.current_stock.upper()+" : $ "+str(self.stock_price)
@@ -210,17 +242,19 @@ class App:
         loop = True
         while loop:
             self.stock_price = self.market_data.get_equity(self.current_stock)
+            self.equity_changed = True
             self.options_dict = {}
             
             data_set_into = []
             data_update = {}
-            opex_timestamp = datetime.timestamp(self.market_data.dt_opex) 
+            opex_timestamp = datetime.timestamp(self.market_data.dt_opex)
 
             for x in self.market_data.get_options(self.current_stock):
-                option = Opcion(x[0],x[1],x[2],x[3],self.stock_price,opex_timestamp)
+                greeks = get_greeks(self.stock_price,float(x[0]),self.interest_rate,self.market_data.days_to_opex/365,self.sigma,x[1])
+                option = Opcion(float(x[0]),x[1],x[2],x[3],self.stock_price,opex_timestamp)
                 self.options_dict[option.ticker] = option
-                #["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"]
-                self.df.loc[x[2]] = [x[3], 0, 0, 0, 0, 0]
+                #["Serie", "Prima", "B&Sch", "Delta", "Gamma", "Tetha", "Vega"]
+                self.df.loc[x[2]] = [x[3], round(greeks["bsch"],3), round(greeks["delta"],3), round(greeks["gamma"],3), round(greeks["theta"],3), round(greeks["vega"],3)]
                 data_set_into.append([option.subyascente,option.ticker,option.price,option.base,"to_timestamp("+str(opex_timestamp)+")"])
                 data_update[option.ticker] = option.price
                 
@@ -263,11 +297,9 @@ class App:
                 text = "<----   Seleccione una cantidad de " + a
             self.text5["text"] = text+"!"
             
-            time.sleep(0.05)
-            
+            time.sleep(0.05)         
+        
     
-
-
     def load_excel(self):
         os.chdir(os.getcwd()+os.sep+"data"+os.sep+"boards")
         os.system(self.user+"_board.xlsx")
@@ -297,12 +329,12 @@ class App:
         self.show_gost.set(int(self.settings_values[5]))
         self.range = tk.IntVar()
         self.range.set(int(self.settings_values[6]))
-        self.range_lines = tk.IntVar()
-        self.range_lines.set(int(self.settings_values[7]))
+        self.add_range_lines = tk.IntVar()
+        self.add_range_lines.set(int(self.settings_values[7]))
         self.presition = tk.IntVar()
         self.presition.set(int(self.settings_values[8]))
-        self.add_range_lines = tk.IntVar()
-        self.add_range_lines.set(int(self.settings_values[9]))
+        self.range_lines = tk.IntVar()
+        self.range_lines.set(int(self.settings_values[9]))
         self.range_line = tk.IntVar()
         self.range_line.set(int(self.settings_values[10]))
         self.range_line2 = tk.IntVar()
@@ -430,6 +462,8 @@ class App:
             self.text4["state"] = "disabled"
         else:
             self.text4["state"] = "normal"
+
+        self.equity_changed = True
 
 
 
@@ -594,6 +628,8 @@ class App:
             self.database.update("tenencia","quant",cant_total,"options",op.ticker)
             self.database.update("tenencia","avg_price",avg_price,"options",op.ticker)
             self.database.update("tenencia","total_value",total_value,"options",op.ticker)
+        self.new_changes = True
+
 
 
         
