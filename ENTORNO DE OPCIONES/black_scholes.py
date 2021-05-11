@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.stats import norm
-from math import sqrt
-import time
+import math
 
 def N(d):
     """
@@ -10,10 +9,17 @@ def N(d):
     return norm.cdf(d,0,1)
 
 def bs_d1(spot,strike,interes,T,sigma):
-    return (np.log(spot/strike) + (interes + sigma**2/2)*T)/(sigma*np.sqrt(T))
+    try:
+        return (np.log(spot/strike) + (interes + sigma**2/2)*T)/(sigma*math.sqrt(T))
+    except:
+        return np.nan
 
 def bs_d2(d1,sigma,T):
-    return d1 - sigma*np.sqrt(T)
+    try:
+        return d1 - sigma*math.sqrt(T)
+    except:
+        return np.nan
+
 
 def get_blackscholes(d1,d2,spot,strike,T,type = "C",interes=0.4):
     """
@@ -81,3 +87,9 @@ print(get_greeks(spot,strike,interes,T,sigma,"C"))
 t1 = time.time()
 print(t1-t0)
 """
+#C 121.98 5.77 37 1 0.3 0.35 100 116
+for i in np.linspace(50,200,50):
+    asd = bs_d1(i,121.98,0.3,37/365,0.35)
+    fgh = bs_d2(asd,0.35,37/365)
+    print((i,(get_blackscholes(asd,fgh,i,121.98,37/365,"C",0.3)-5.77)*100))
+    

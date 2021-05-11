@@ -1,3 +1,4 @@
+from API_data import Data_market
 import psycopg2
 import dotenv, os
 from datetime import datetime
@@ -62,6 +63,10 @@ class Postgres_database:
         command= f"INSERT INTO {table} {columns} VALUES {values}"
         self.query(command)
 
+    def delete(self,table,key,value):
+        command = f"DELETE FROM {table} WHERE {key} = '{value}';"
+        self.query(command)
+
     def select(self,table,columns="*",condition=None):
 
         command = f"SELECT {columns} FROM {table}"
@@ -92,25 +97,4 @@ class Postgres_database:
         self.query(command)
 
 db = Postgres_database()
-#print(db.update("users","last_login","to_timestamp("+str(datetime.timestamp(datetime.now()))+")"))
-#print(dict(db.select("users",columns="username,last_login")))
-#db.query("ALTER TABLE historial ADD COLUMN opcion varchar(20)")
-#print(db.select("tenencia",columns="(quant,avg_price)",condition="options = 'asdasd'"))
-
-#db.truncate("all")
-#db.query("ALTER TABLE tenencia DROP CONSTRAINT tenencia_options_fkey")
-#print(db.select("tenencia"))
-#db.query("ALTER TABLE tenencia ADD CONSTRAINT unique_constraint UNIQUE (options)")
-#db.query("ALTER TABLE options ADD CONSTRAINT foreign_key FOREIGN KEY (ticker) REFERENCES tenencia(options)")
-
-#print(db.select("tenencia"))
-#asdasd = {'GFGV11898J':10,'GFGV10398J':15}
-#db.multiple_update("tenencia","current_price","options",asdasd)
-#db.query("UPDATE tenencia SET current_price = CASE WHEN options = 'GFGV10398J' THEN 10 END, turnover = CASE WHEN options = 'GFGV10398J' THEN 30 END WHERE options IN ('GFGV10398J')") 
-#db.query("ALTER TABLE tenencia DROP COLUMN turnover")
-#print(db.select("tenencia",columns='("options","quant","avg_price","current_price","total_value",((("current_price"/"avg_price")-1))*100)'))
-"""
-for i in db.select("options"):
-    print(i)
-    print(i[0])
-"""
+db.truncate("all")

@@ -169,7 +169,7 @@ def get_volatilidad_historica(bearer_token,media=58):
         cierre_ant = a["ultimoPrecio"]
 
 
-    df.to_excel('example.xls', sheet_name='Volatilidad Histótica')
+    df.to_excel('example.xlsx', sheet_name='Volatilidad Histótica')
     #plt.plot(list(df.index)[::-1],list(df.loc[:,"Volatilidad"])[::-1])
     #plt.show()
     return (list(df.index)[::-1], list(df.loc[:, "Volatilidad"])[::-1]),df.iloc[0,-1]
@@ -228,4 +228,4 @@ bearer_token, refresh_token = log_in()
 #get_ggal_adr()
 #print("BEARER TOKEN: ",bearer_token)
 #print(get_volatilidad_historica(bearer_token))
-#get_volatilidad_historica(bearer_token,media=365)
+print(get_volatilidad_historica(bearer_token,media=365))
