@@ -36,7 +36,7 @@ class App:
         self.load_settings()
         self.current_stock = self.equity.get()[:4].lower()
 
-        self.root.geometry("2200x600")
+        self.root.geometry("1870x600")
         self.root.title("Entorno de opciones "+self.current_stock.upper())
         self.root.pack_propagate(False)
         self.root.resizable(False,False)
@@ -45,9 +45,6 @@ class App:
         self.menu_bar = tk.Menu(self.root)
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Cargar Datos",command=self.load_excel)
-
-        
-
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Guardar",command=lambda:threading.Thread(target=self.save_changes).start())
         self.menu_bar.add_separator()
@@ -60,7 +57,6 @@ class App:
         self.menu_bar.add_command(label="Cambiar de usuario",command=self.change_user)
         self.menu_bar.add_separator()
         self.menu_bar.add_command(label="Salir",command=self.on_closing)
-        #self.menu.add_cascade(label="File",menu=self.menu_bar)
         self.root.config(menu=self.menu_bar)
 
         # Main texts
@@ -70,8 +66,7 @@ class App:
         self.text2.place(x=600, height=550, width=540)
         self.text4 = tk.Label(self.root,font=("Verdana",16))
         self.text4.place(x=850, y=560) #
-        self.text6 = tk.Text(self.root)
-        #self.text6.place(x=1470, y=425, height=150, width=200) #
+        
 
         #Entry
         self.entry_var = tk.StringVar()
@@ -81,13 +76,7 @@ class App:
         #Radiobuttons
         self.opcion = tk.StringVar()
         self.opcion.set("")
-        self.cant_operar = tk.IntVar()
-        #self.opcion.set(df.index[0])
-        self.cant_operar.set(0)
-        self.radiobutton = tk.Radiobutton(self.root, var=self.opcion, value="GGAL")
-        #self.radiobutton["command"] = lambda:clicked(opcion.get())
-        #self.radiobutton.place(x=1700, y=482)
-
+        
         #Labels
         self.text3 = tk.Label(self.root, text="")
         self.text3.place(x=1700, y=425)
@@ -97,21 +86,6 @@ class App:
         #Buttons
         self.button1 = tk.Button(self.root, text="Operar!",command=self.buy)
         self.button1.place(x="125", y="567")
-        #self.button2 = tk.Button(self.root, text="(+)")
-        #self.button2["command"] = lambda: lambda: clicked(opcion.get(),1))
-        #self.button2.place(x="200", y="567")
-        #self.button3 = tk.Button(self.root, text="(-)")
-        #self.button3["command"] = lambda: clicked(opcion.get(),-1)
-        #self.button3.place(x="250", y="567")
-        self.button4 = tk.Button(self.root, text = "Guardar")
-        #self.button4["command"] = lambda: guardar_datos(path)
-        #self.button4.place(x="1200", y="550")
-        self.button5 = tk.Button(self.root, text="{:3}".format("+"))
-        #self.button5["command"] = lambda: ancho_tabla(-5)
-        self.button5.place(x="1770", y="500")
-        self.button6 = tk.Button(self.root, text=" {:3}".format("-"))
-        #self.button5["command"] = lambda: ancho_tabla(+5)
-        self.button6.place(x="1770", y="530")
         self.button7 = tk.Button(self.root,text="Actualizar!")
         self.button7["command"] = lambda: threading.Thread(target=self.get_options,name="update_thread").start()
         self.button7.place(x="700",y="567")
@@ -119,17 +93,13 @@ class App:
 
         if self.is_auto.get():
             self.button7["state"] = "disabled"
-        
-        
 
-        #OPCIONES DISPONIBLES
+        #Available options
         self.options_dict = {}
-        #self.df = pd.DataFrame(columns=["Serie", "Prima", "B&Sch", "Tenencia", "PP", "Cantidad", "Rendimiento"])
         self.df = pd.DataFrame(columns=["Serie", " "*3+"Prima", "B&Sch", " "*7+"Delta", "Gamma", "Tetha", "Vega"])
         self.df.set_index("Serie", inplace=True)
 
-
-        # Grafico
+        # Graph
         self.x,self.y,self.y2 = np.nan,np.nan,np.nan
         style.use("Solarize_Light2")
         self.fig, self.ax = plt.subplots(2,1,figsize=(7, 5.5), dpi=100)
@@ -145,11 +115,10 @@ class App:
         self.chart.draw()
         self.chart.get_tk_widget().place(x=1150)
 
-        #EVENTOS
+        #Events
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        #Hilos y cierre del loop
-
+        #Threads and loops
         self.threads = []
         self.get_options_thread = threading.Thread(target=self.get_options,name="get_options")
         self.get_options_thread.start()
@@ -160,21 +129,24 @@ class App:
         self.root.mainloop()
     
     def get_historical_volatility(self):
-        data = self.market_data.get_volatilidad_historica(self.current_stock,data=365,last=40)
+        self.ax[1].clear()
+
+        data = self.market_data.get_volatilidad_historica(self.current_stock,data=self.daysgraph2.get(),last=self.volatility_days.get())
         x,y,stocky,last = data[0][0],data[0][1],data[0][2],data[1]
         self.stock_close = stocky[-1]
         print("CLOSEEEEEEEE:",self.stock_close)
+        print(stocky)
 
-        ret = round((((self.stock_price-self.stock_close)/self.stock_price)*100),2)
-
-            
-
-        ret_color = "red" if ret < 0 else "green"
-        self.text8 = tk.Label(self.root,text=f" {ret}%",font=("Verdana",16),fg=ret_color)
-        self.text8.place(x=1080, y=560) #
+        if str(self.stock_close) != "nan":
+            ret = round((((self.stock_price-self.stock_close)/self.stock_price)*100),2)
+            ret_color = "red" if ret < 0 else "green"
+            self.text8 = tk.Label(self.root,text=f" {ret}%",font=("Verdana",16),fg=ret_color)
+            self.text8.place(x=1080, y=560) #
 
         self.ax[1].plot(x,y)
-        self.ax[1].plot([x[0],x[-1]],[last,last],ls="--",linewidth=0.5,label=f"Volatilidad historica: {round(last*100,2)}%")
+        self.ax[1].plot([x[0],x[-1]],[last,last],ls="--",linewidth=0.5,label=f"VI: {round(last*100,2)}%")
+        
+
         self.ax[1].legend()
         
 
@@ -182,8 +154,7 @@ class App:
         self.ax[1].xaxis.set_major_locator(fmt_half_year)
         #self.ax[1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
         self.fig.autofmt_xdate()
-        self.ax[1].text(last,mdates.date2num(datetime.strptime(x[-1],'%Y-%m-%d')),str(last),fontsize=14)
-
+        
 
 
     def update_graph(self,i):
@@ -192,7 +163,7 @@ class App:
             self.ax[0].clear()
             self.fig.legends = []
             self.ax[0].axhline(y=0,ls="--",c="black",linewidth=0.3)
-
+            
 
             if self.new_changes:
                 query = "SELECT options.ticker, options.strike, options.price, tenencia.quant,\
@@ -287,6 +258,7 @@ class App:
             data_update = {}
             opex_timestamp = datetime.timestamp(self.market_data.dt_opex)
 
+
             for x in self.market_data.get_options(self.current_stock):
                 x[0] = float(x[0].replace(",",""))
                 greeks = get_greeks(self.stock_price,x[0],self.rate.get()/100,self.market_data.days_to_opex/365,self.sigma.get()/100,x[1])
@@ -339,7 +311,7 @@ class App:
             except:
                 text = "<----   Seleccione una cantidad de " + a
             self.text5["text"] = text+"!"
-            
+            #print(self.threads)            
             time.sleep(0.05)         
         
     
@@ -384,14 +356,14 @@ class App:
         self.range_line2.set(int(self.settings_values[11]))
         self.range_line3 = tk.IntVar()
         self.range_line3.set(int(self.settings_values[12]))
-        self.sigma = tk.IntVar()
-        self.sigma.set(int(self.settings_values[13]))
-        self.rate = tk.IntVar()
-        self.rate.set(int(self.settings_values[14]))
         self.daysgraph2 = tk.IntVar()
-        self.daysgraph2.set(int(self.settings_values[15]))
+        self.daysgraph2.set(int(self.settings_values[13]))
         self.volatility_days = tk.IntVar()
-        self.volatility_days.set(int(self.settings_values[16]))
+        self.volatility_days.set(int(self.settings_values[14]))
+        self.sigma = tk.IntVar()
+        self.sigma.set(int(self.settings_values[15]))
+        self.rate = tk.IntVar()
+        self.rate.set(int(self.settings_values[16]))
 
 
 
@@ -403,7 +375,7 @@ class App:
         self.settings.pack_propagate(False)
         self.settings.resizable(False,False)
 
-        last_values = {"equity":self.equity.get(),"sigma":self.sigma.get(),"rate":self.rate.get()}
+        last_values = {"equity":self.equity.get(),"sigma":self.sigma.get(),"rate":self.rate.get(),"days_graph2":self.daysgraph2.get(),"vi_days":self.volatility_days.get()}
         #1. Actualizacion automatica o manual
         self.manual = tk.Label(self.settings,text="Actualización manual")
         self.manual.place(x=45,y=30)
@@ -491,14 +463,14 @@ class App:
 
         self.third_range =tk.Label(self.settings,text="Días p/ cálculo del gráfico")
         self.third_range.place(x=45,y=490)
-        self.spinbox9 = tk.ttk.Spinbox(self.settings,textvariable= self.daysgraph2,justify="center",width=5,from_=1,to=100)
-        self.spinbox9.set(self.range_line3.get())
+        self.spinbox9 = tk.ttk.Spinbox(self.settings,textvariable= self.daysgraph2,justify="center",width=5,values=(70,100,180,200,250,300,365))
+        self.spinbox9.set(self.daysgraph2.get())
         self.spinbox9.place(x=270,y=490)
 
         self.third_range =tk.Label(self.settings,text="Ruedas para el cálculo de la volatilidad")
         self.third_range.place(x=45,y=520)
-        self.spinbox10 = tk.ttk.Spinbox(self.settings,textvariable= self.volatility_days,justify="center",width=5,from_=1,to=100)
-        self.spinbox10.set(self.range_line3.get())
+        self.spinbox10 = tk.ttk.Spinbox(self.settings,textvariable= self.volatility_days,justify="center",width=5,values=(20,30,40,50,60,70))
+        self.spinbox10.set(self.volatility_days.get())
         self.spinbox10.place(x=270,y=520)
 
         tk.ttk.Separator(self.settings,orient = tk.HORIZONTAL).place(y=560,relx=0.05,relwidth=0.9)
@@ -506,13 +478,13 @@ class App:
         self.third_range =tk.Label(self.settings,text="Sigma - Volatilidad")
         self.third_range.place(x=45,y=590)
         self.spinbox11 = tk.ttk.Spinbox(self.settings,textvariable= self.sigma,justify="center",width=5,from_=1,to=100)
-        self.spinbox11.set(self.range_line3.get())
+        self.spinbox11.set(self.sigma.get())
         self.spinbox11.place(x=200,y=590)
 
         self.third_range =tk.Label(self.settings,text="Tasa libre de riesgo")
         self.third_range.place(x=45,y=620)
         self.spinbox12 = tk.ttk.Spinbox(self.settings,textvariable= self.rate,justify="center",width=5,from_=1,to=100)
-        self.spinbox12.set(self.range_line3.get())
+        self.spinbox12.set(self.rate.get())
         self.spinbox12.place(x=200,y=620)
         
 
@@ -527,10 +499,10 @@ class App:
 
         if self.is_auto.get():
             print("Automatico!")
-            print("is alive? ",self.update_thread.is_alive())
-            if not self.update_thread.is_alive():
-                self.update_thread = threading.Thread(target=self.get_options)
-                self.update_thread.start()
+            print("is alive? ",self.get_options_thread.is_alive())
+            if not self.get_options_thread.is_alive():
+                self.get_options_thread = threading.Thread(target=self.get_options)
+                self.get_options_thread.start()
             self.button7["state"] = "disabled"
         else:
             self.button7["state"] = "normal"
@@ -547,7 +519,16 @@ class App:
             self.text4["state"] = "normal"
 
         if last_values["sigma"] != self.sigma.get() or last_values["rate"] != self.rate.get():
-            self.restart_update = True
+            if not self.get_options_thread.is_alive():
+                self.get_options()
+            #self.new_changes = True
+            
+
+            
+
+        if last_values["vi_days"] != self.volatility_days.get() or last_values["days_graph2"] != self.daysgraph2.get():
+            print("cambios detectados")
+            threading.Thread(target=self.get_historical_volatility).start()
 
         self.equity_changed = True
         self.new_changes = True
@@ -667,7 +648,7 @@ class App:
     def save_changes(self):
         self.total_settings = [str(self.is_auto.get()),str(self.iter_aut.get()),str(self.equity.get()),str(self.show_equity.get()),str(self.add_result_finish.get()),str(self.show_gost.get()),
                             str(self.range.get()),str(self.range_lines.get()),str(self.presition.get()),str(self.add_range_lines.get()),str(self.range_line.get()),str(self.range_line2.get()),
-                            str(self.range_line3.get()),str(self.sigma.get()),str(self.rate.get()),str(self.daysgraph2.get()),str(self.volatility_days.get())]
+                            str(self.range_line3.get()),str(self.daysgraph2.get()),str(self.volatility_days.get()),str(self.sigma.get()),str(self.rate.get())]
 
         with open("data/settings_values.txt","w",encoding="utf-8") as handler:
             handler.write(",".join(self.total_settings))
@@ -679,23 +660,24 @@ class App:
 
     def buy(self):
         print("aaaaaaaaaaaaaaa")
+        self.lote = 100
         print(self.opcion.get(),self.entry_var.get())
         cant = int(self.entry_var.get())
         a = "buy" if cant > 0 else "sell"
         op = self.options_dict[self.opcion.get()]
         print(op.ticker,op.price,op.side,op.base,op.subyascente)
         now = "to_timestamp("+str(datetime.timestamp(datetime.now()))+")"
-        self.database.insert_into("historial",[[now,a,abs(cant),op.price,round((-cant)*op.price*100,2),op.ticker]])
+        self.database.insert_into("historial",[[now,a,abs(cant),op.price,round((-cant)*op.price*self.lote,2),op.ticker]])
 
         self.equity_changed = True
         
+
         try:
             data = self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")[0][0]
             data = data.replace("(","").replace(")","")
             cant_ant, avg_ant = data.split(",")
             cant_ant,avg_ant = int(cant_ant),float(avg_ant)
             exists = True
-            print(self.database.select("tenencia",columns="(quant,avg_price)",condition="options = '"+op.ticker+"'")[0])
 
         except:
             cant_ant, avg_ant= 0,0
@@ -708,18 +690,27 @@ class App:
 
         if cant_total:
             if a == "buy":
-                total_value = cant_ant*avg_ant+cant*op.price
-                avg_price = total_value/cant_total
+                print("entra por buy")
+                total_value = (cant_ant*avg_ant+cant*op.price)*self.lote
+                avg_price = (total_value/self.lote)/cant_total
             else:
-                avg_price = avg_ant
+                if cant_ant:
+                    print("entra por else")
+                    avg_price = avg_ant
+                else:
+                    print("entra por else2")
+
+                    avg_price = op.price
+
                 total_value = cant_total*avg_price*100
+            print("DATA DEL TABLE: ",avg_price,total_value,cant_total,cant,cant_total,cant_ant)
 
 
             
             if not exists:
-                self.database.insert_into("tenencia",[[op.ticker,cant_total,avg_price,op.price,round(total_value*100,2)]])
+                self.database.insert_into("tenencia",[[op.ticker,cant_total,avg_price,op.price,round(total_value,2)]])
             else:
-                self.database.update("tenencia","quant",cant_total*100,"options",op.ticker)
+                self.database.update("tenencia","quant",cant_total,"options",op.ticker)
                 self.database.update("tenencia","avg_price",avg_price,"options",op.ticker)
                 self.database.update("tenencia","total_value",total_value,"options",op.ticker)
         else:

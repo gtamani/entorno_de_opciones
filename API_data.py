@@ -109,7 +109,7 @@ class Data_market:
         Obtenemos precios de GGAL
         *56 días son 40 ruedas*
         """
-        path = os.getcwd()+os.sep+"data"+os.sep+str(self.today.year)+"-"+str(self.today.month)+"-"+str(self.today.day)+"-"+str(stock)+"-data.txt"
+        path = os.getcwd()+os.sep+"data"+os.sep+str(self.today.year)+"-"+str(self.today.month)+"-"+str(self.today.day)+"-"+str(stock)+"-"+str(last)+"-data.txt"
         if os.path.exists(path):
             with open(path,"r",encoding="utf-8") as handler:
                 xaxis = handler.readline().replace("\n","").split(" ")
@@ -161,8 +161,6 @@ class Data_market:
             df.to_excel('example.xlsx', sheet_name='Volatilidad Histótica')  
             with open(path,"w",encoding="utf-8") as handler:
                 handler.write(" ".join([str(x) for x in xaxis])+"\n"+" ".join([str(y) for y in yaxis])+"\n"+" ".join([str(y) for y in ystock])+"\n"+str(last))
-        return [xaxis,yaxis,ystock],last
+        return [xaxis[-data:-1],yaxis[-data:-1],ystock[-data:-1]],last
             
 
-asd = Data_market()
-asd.get_volatilidad_historica("ggal")

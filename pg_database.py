@@ -97,4 +97,4 @@ class Postgres_database:
         self.query(command)
 
 db = Postgres_database()
-db.truncate("all")
+#db.truncate("all")
